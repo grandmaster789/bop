@@ -1,5 +1,10 @@
 # preamble
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.21)
+
+# use cmake to install vcpkg dependency management
+# https://github.com/bitmeal/vcpkg-cmake-integration
+set(VCPKG_VERSION latest)
+include(cmake/vcpkg.cmake)
 
 set(RootProjectName bop)
 project(${RootProjectName})
