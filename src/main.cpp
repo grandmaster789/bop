@@ -10,7 +10,7 @@ auto switch_to(std::jthread& out) {
 		// first thing that gets checked is whether we could immediately resume
 		bool await_ready() {
 			std::cout << "await_ready() " << std::this_thread::get_id() << "\n";
-			return false; // we always say no
+			return false; // we always say no - this will need to be suspended
 		}
 
 		// because we couldn't immediately resume, we'll have to suspend
