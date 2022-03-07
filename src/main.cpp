@@ -3,6 +3,11 @@
 #include <stdexcept>
 #include <thread>
 
+#include "util/typelist.h"
+#include "util/valuelist.h"
+#include "util/traits.h"
+#include "util/concepts.h"
+
 auto switch_to(std::jthread& out) {
 	struct Awaitable {
 		std::jthread* m_Thread = nullptr;
@@ -77,7 +82,7 @@ Task resuming_on_new_thread(std::jthread& thd) {
 
 	std::cout << "Resumed on " << std::this_thread::get_id() << "\n";
 
-	// no explicit return required here?
+	// no explicit return required here? seems that co_return is optional
 	co_return;
 }
 
@@ -90,3 +95,8 @@ int main() {
 
 	std::cout << "Ping\n";
 }
+
+// dekkingsgraad inzichtelijk maken en hoe deze te verbeteren/wijzigen
+// waardes bufferzone doorgeven
+// flightplan generator integreren voor externe tools
+// uitzoeken foutmeldingen 
