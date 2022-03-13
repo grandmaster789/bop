@@ -96,6 +96,4 @@ namespace bop::util {
 	> {
 		using Type = ValueList<T, t_ValuesA..., t_ValuesB...>;
 	};
-
-	
 }

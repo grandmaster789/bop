@@ -7,14 +7,14 @@ namespace bop::util {
 	namespace detail {
 		// Type Of Element Helper
 		template <
-			int64_t,    // index
-			int64_t,    // cursor
+			size_t,    // index
+			size_t,    // cursor
 			typename... // type list
 		>
 		struct TOEHelper;
 
 		template <
-			int64_t t_Index, 
+			size_t t_Index,
 			typename T, 
 			typename... t_Types
 		>
@@ -23,8 +23,8 @@ namespace bop::util {
 		};
 
 		template <
-			int64_t t_Index, 
-			int64_t t_Cursor, 
+			size_t t_Index,
+			size_t t_Cursor,
 			typename t_Head, 
 			typename... t_Tail
 		>
@@ -39,16 +39,16 @@ namespace bop::util {
 
 		template <
 			typename... t_Types,
-			int... t_Indices
+			size_t... t_Indices
 		>
-			struct ReverseTypeListHelper<ValueList<int, t_Indices...>, t_Types...> {
+			struct ReverseTypeListHelper<ValueList<size_t, t_Indices...>, t_Types...> {
 			using InternalTypelist = typename TypeList<t_Types...>;
 			using Type = TypeList<typename InternalTypelist::template get<t_Indices>...>;
 		};
 	}
 
 	template <
-		int64_t t_Index, 
+		size_t t_Index,
 		typename... t_Types
 	>
 	struct TypeOfElement {
