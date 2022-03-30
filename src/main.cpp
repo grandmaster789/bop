@@ -3,6 +3,14 @@
 #include <stdexcept>
 #include <thread>
 
+#include "util/traits.h"
+#include "util/simple_function.h"
+#include "util/concepts.h"
+
+#include "job/job.h"
+#include "job/job_queue.h"
+#include "job/job_system.h"
+
 auto switch_to(std::jthread& out) {
 	struct Awaitable {
 		std::jthread* m_Thread = nullptr;
@@ -82,6 +90,15 @@ Task resuming_on_new_thread(std::jthread& thd) {
 }
 
 int main() {
+	std::pmr::vector<int> xyz;
+	std::vector<int> abc;
+
+	std::cout << "Trait test: " << std::boolalpha << bop::util::is_pmr_vector<decltype(abc)>::value << "\n";
+
+	bop::util::SimpleFunction fn([] { std::cout << "!!!\n"; });
+
+	fn();
+
 	std::jthread x; // thread does nothing yet
 
 	std::cout << "Main thread: " << std::this_thread::get_id() << "\n";

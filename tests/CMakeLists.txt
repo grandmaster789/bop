@@ -1,14 +1,15 @@
 set(UNITTEST "unittest")
 
-add_executable(${UNITTEST}
-	"main.cpp"
+add_library(${UNITTEST}
+	"test.cpp"
 )
 
-find_package(GTest CONFIG REQUIRED)
+find_package(Catch2 CONFIG REQUIRED)
 
 target_link_libraries(${UNITTEST} PRIVATE 
-	GTest::gmock 
-	GTest::gtest 
-	GTest::gmock_main 
-	GTest::gtest_main
+	Catch2::Catch2
 )
+
+#include(CTest)
+#include(Catch)
+#catch_discover_tests(${UNITTEST})
