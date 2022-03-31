@@ -452,3 +452,9 @@ namespace bop::job {
 		);
 	}
 }
+
+namespace bop {
+	job::JobBase* current_work() {
+		return job::JobSystem::get_current_work();
+	}
+}

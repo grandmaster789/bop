@@ -80,3 +80,49 @@ namespace bop::job {
 		static_cast<Job*>(current)->m_Continuation = allocate(std::forward<T>(fn));
 	}
 }
+
+namespace bop {
+	template <typename T>
+	requires
+		util::c_functor<T> ||
+		util::is_pmr_vector<std::decay_t<T>>::value ||
+		std::is_same_v<std::decay_t<T>, util::Tag>
+	uint32_t schedule(
+		T&&           work,
+		util::Tag     tag,
+		job::JobBase* parent,
+		int32_t       num_child_tasks
+	) noexcept {
+		if constexpr (util::is_pmr_vector<std::decay_t<T>>::value) {
+			// we're adding multiple tasks at the same time
+			if (num_child_tasks < 0)
+				num_child_tasks = static_cast<int32_t>(work.size());
+
+			int32_t result = num_child_tasks;
+			
+			for (auto&& f : work) {
+				schedule(
+					std::forward<decltype(f)>(f), 
+					tag, 
+					parent, 
+					num_child_tasks
+				);
+			
+				// only the first job lists the total number of child tasks
+				num_child_tasks = 0;
+			}
+
+			return result;
+		}
+		else {
+			// we're adding a single task
+			return job::JobSystem()
+				.schedule(
+					std::forward<T>(work), 
+					tag, 
+					parent, 
+					num_child_tasks
+				);
+		}
+	}
+}

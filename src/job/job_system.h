@@ -15,6 +15,7 @@
 #include "../util/thread_types.h"
 #include "../util/tag.h"
 #include "../util/simple_function.h"
+#include "../util/traits.h"
 
 namespace bop::job {
 	/*
@@ -69,8 +70,8 @@ namespace bop::job {
 			std::is_same_v<std::decay_t<T>, util::Tag>
 		uint32_t schedule(
 			T&&       fn, 
-			util::Tag tag        = util::Tag(),
-			JobBase*  parent      = m_CurrentJob,
+			util::Tag tag          = util::Tag(),
+			JobBase*  parent       = m_CurrentJob,
 			int32_t   num_children = -1
 		);
 
@@ -147,6 +148,25 @@ namespace bop::job {
 		static inline TypeMapping m_TypeNames;
 		static inline TimePoint   m_StartTime = Clock::now(); // default to program startup time
 	};
+}
+
+namespace bop {
+	job::JobBase* current_work();
+
+	template <typename T>
+	requires
+		util::c_functor<T> ||
+		util::is_pmr_vector<std::decay_t<T>>::value ||
+		std::is_same_v<std::decay_t<T>, util::Tag>
+	uint32_t schedule(
+		T&&           work,
+		util::Tag     tag             = util::Tag(),
+		job::JobBase* parent          = current_work(),
+		int32_t       num_child_tasks = -1
+	) noexcept;
+
+	template <typename Fn>
+	void continuation(Fn&& f) noexcept;
 }
 
 #include "job_system.inl"
