@@ -14,10 +14,10 @@ add_executable(${BOP}
 	"util/concepts.h"
 	"util/thread_types.h"
 	"util/traits.h"
-	"util/simple_function.h"
-	"util/simple_function.cpp"	
+	"util/function.h"
+		
 	"util/tag.h"
-)
+ "job/job_queue.cpp")
 
 target_link_libraries(${BOP} PRIVATE 
 	nlohmann_json 

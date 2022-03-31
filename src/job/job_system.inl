@@ -6,34 +6,16 @@
 namespace bop::job {
 	template <typename T>
 	requires
-		util::c_functor<T> ||
-		std::is_same_v<std::decay_t<T>, util::Tag>
+		util::c_functor<T>
 	uint32_t JobSystem::schedule(
-		T && fn,
-		util::Tag tag,
-		JobBase * parent,
+		T &&      fn,
+		Job*      parent,
 		int32_t   num_children
 	) {
-		if constexpr (std::is_same_v<std::decay<T>, util::Tag>) {
-			return schedule_tag(fn, tag, parent, num_children);
-		}
-
 		Job* work = allocate(std::forward<T>(fn));
 		work->m_Parent = nullptr;
 
-		if (tag.m_Value < 0) {
-			work->m_Parent = parent;
-
-			if (parent) {
-				if (num_children < 0)
-					num_children = 1; // this is the first job in its tree
-
-				// add the child task to the parents' count
-				parent->m_NumChildren.fetch_add(static_cast<int>(num_children));
-			}
-		}
-
-		return schedule_work(work, tag);
+		return schedule_work(work);
 	}
 
 	template <typename Fn>
@@ -43,13 +25,11 @@ namespace bop::job {
 
 		// forward the lambda/functionpointer/function wrapper/invocable etc to the correct field
 		// 
-		// if we can, initialize it using SimpleFunction members
-		if constexpr (std::is_same_v<std::decay<Fn>, util::SimpleFunction>) {
+		// if we can, initialize it using Function members (which may have a thread spec)
+		if constexpr (std::is_same_v<std::decay<Fn>, util::Function>) {
 			result->m_Work        = fn.get_function();
 			result->m_WorkFnPtr   = nullptr;
 			result->m_ThreadIndex = fn.m_ThreadIndex;
-			result->m_ThreadType  = fn.m_ThreadType;
-			result->m_ThreadID    = fn.m_Thread_ID;
 		}
 		else {	
 			// see if this is a plain global function pointer
@@ -69,7 +49,7 @@ namespace bop::job {
 	template <typename T>
 	requires util::c_functor<T>
 	void JobSystem::schedule_continuation(T&& fn) noexcept {
-		JobBase* current = get_current_work();
+		Job* current = get_current_work();
 
 		if (
 			!current ||             // no job is currently executing
@@ -85,13 +65,11 @@ namespace bop {
 	template <typename T>
 	requires
 		util::c_functor<T> ||
-		util::is_pmr_vector<std::decay_t<T>>::value ||
-		std::is_same_v<std::decay_t<T>, util::Tag>
+		util::is_pmr_vector<std::decay_t<T>>::value
 	uint32_t schedule(
-		T&&           work,
-		util::Tag     tag,
-		job::JobBase* parent,
-		int32_t       num_child_tasks
+		T&&       work,
+		job::Job* parent,
+		int32_t   num_child_tasks
 	) noexcept {
 		if constexpr (util::is_pmr_vector<std::decay_t<T>>::value) {
 			// we're adding multiple tasks at the same time
@@ -103,7 +81,6 @@ namespace bop {
 			for (auto&& f : work) {
 				schedule(
 					std::forward<decltype(f)>(f), 
-					tag, 
 					parent, 
 					num_child_tasks
 				);
@@ -119,7 +96,6 @@ namespace bop {
 			return job::JobSystem()
 				.schedule(
 					std::forward<T>(work), 
-					tag, 
 					parent, 
 					num_child_tasks
 				);

@@ -8,20 +8,19 @@ namespace bop::job {
 		allocator.deallocate(job, 1);
 	}
 
-	/***** JobBase *****/
-	JobDeallocator JobBase::get_deallocator() noexcept {
+	/***** Job *****/
+	JobDeallocator Job::get_deallocator() noexcept {
 		return JobDeallocator();
 	}
 
-	void JobBase::operator()() noexcept {
+	void Job::operator()() noexcept {
 		resume();
 	}
 
-	bool JobBase::is_function() noexcept {
+	bool Job::is_function() noexcept {
 		return m_IsFunction;
 	}
 
-	/***** Job *****/
 	Job::Job(std::pmr::memory_resource* resource):
 		m_MemoryResource(resource)
 	{
@@ -34,10 +33,6 @@ namespace bop::job {
 		m_NumChildren  = 1;
 		m_Parent       = nullptr;
 		m_Continuation = nullptr;
-
-		m_ThreadIndex = util::ThreadIndex();
-		m_ThreadType  = util::ThreadType();
-		m_ThreadID    = util::ThreadID();
 	}
 
 	bool Job::resume() noexcept {
@@ -55,21 +50,11 @@ namespace bop::job {
 		return true;
 	}
 
-	/***** JobTrace *****/
-	JobTrace::JobTrace(
-		TimePoint         start_time,
-		TimePoint         stop_time,
-		bool              completed,
-		util::ThreadIndex executing_on_thread,
-		util::ThreadType  thread_type,
-		util::ThreadID    thread_id
-	):
-		m_StartTime      (std::move(start_time)),
-		m_StopTime       (std::move(stop_time)),
-		m_Completed      (completed),
-		m_ExecutingThread(executing_on_thread),
-		m_ThreadType     (thread_type),
-		m_ThreadID       (thread_id)
-	{
+	void Job::set_next(Job* j) noexcept {
+		m_Next = j;
+	}
+
+	Job* Job::get_next() const noexcept {
+		return m_Next;
 	}
 }
