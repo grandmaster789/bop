@@ -21,9 +21,9 @@ namespace bop::job {
 
 		// initalize (static) members
 		m_MemoryResource = memory_resource;
-		
-		if (!num_threads) // NOTE m_NumThreads is unsigned, so check the signed source
-			m_NumThreads = std::thread::hardware_concurrency();
+
+		if (!num_threads) 
+			m_NumThreads = std::thread::hardware_concurrency(); // default to hardware concurrency count
 		else
 			m_NumThreads = *num_threads;
 
@@ -31,11 +31,10 @@ namespace bop::job {
 			m_NumThreads = 1; // always have at least one worker
 
 		// initialize queue logic for all worker threads
-		for (int32_t i = 0; i < m_NumThreads; ++i) {
-			m_GlobalQueues.push_back(std::make_unique<JobQueue>());
-			m_LocalQueues.push_back(std::make_unique<JobQueue>());
-			m_Mutexes.push_back(std::make_unique<std::mutex>());
-		}
+		// sadness - the semantics of vector 
+		m_GlobalQueues = std::make_unique<JobQueue[]>(m_NumThreads);
+		m_LocalQueues  = std::make_unique<JobQueue[]>(m_NumThreads);
+		m_Mutexes      = std::make_unique<std::mutex[]>(m_NumThreads);
 
 		// launch and detach worker threads
 		for (uint32_t i = 0; i < m_NumThreads; ++i) {
@@ -86,7 +85,7 @@ namespace bop::job {
 
 		if (remaining <= 1) { // at some point, there's no more child tasks remaining
 			if (job->is_function())
-				on_completed(static_cast<Job*>(job));
+				on_completed(job);
 			else
 				schedule_work(job); // this is the coro case, which just needs to be rescheduled
 
@@ -118,15 +117,15 @@ namespace bop::job {
 		// set up work-stealing indices
 		uint32_t steal_from = (thread_index + 1) % m_NumThreads.load();
 
-		std::unique_lock lock(*m_Mutexes[l_ThreadIndex]);
+		std::unique_lock lock(m_Mutexes[l_ThreadIndex]);
 
-		// do work while we're not done
+		// main worker loop -- do work while we're shutting down
 		while (!m_Shutdown) {
 			// prioritize local queue over the global one (should have less contention)
-			l_CurrentJob = m_LocalQueues[l_ThreadIndex]->pop();
+			l_CurrentJob = m_LocalQueues[l_ThreadIndex].pop();
 
 			if (!l_CurrentJob)
-				l_CurrentJob = m_GlobalQueues[l_ThreadIndex]->pop();
+				l_CurrentJob = m_GlobalQueues[l_ThreadIndex].pop();
 
 			// if we still don't have any work yet try to steal it from another global queue
 			uint32_t numStealAttempts = m_NumThreads - 1;
@@ -134,7 +133,7 @@ namespace bop::job {
 				if (++steal_from >= m_NumThreads)
 					steal_from = 0;
 
-				l_CurrentJob = m_GlobalQueues[steal_from]->pop();
+				l_CurrentJob = m_GlobalQueues[steal_from].pop();
 			}
 
 			// if we have a job, execute it
@@ -144,9 +143,9 @@ namespace bop::job {
 				bool is_function = l_CurrentJob->is_function(); 
 
 				(*l_CurrentJob)(); // do the actual work
-
+				
 				if (is_function)
-					child_completed(static_cast<Job*>(l_CurrentJob));
+					child_completed(l_CurrentJob);
 
 				l_no_work_counter = 0;
 			}
@@ -157,13 +156,13 @@ namespace bop::job {
 				l_GarbageBin.clear();
 				m_WaitCondition.wait_for(lock, 100ms);
 
-				l_no_work_counter /= 2;
+				l_no_work_counter /= 2; // it's not like this worker is hot, so don't reset the counter entirely
 			}
 		}
 
 		// we're outside of the execution loop; shutdown was triggered so do cleanup this workers' resources
-		m_GlobalQueues[l_ThreadIndex]->clear();
-		m_LocalQueues[l_ThreadIndex]->clear();
+		m_GlobalQueues[l_ThreadIndex].clear();
+		m_LocalQueues[l_ThreadIndex].clear();
 		l_RecyclingBin.clear();
 		l_GarbageBin.clear();
 
@@ -231,14 +230,14 @@ namespace bop::job {
 			if (tidx >= m_NumThreads)
 				tidx = 0;
 
-			m_GlobalQueues[tidx]->push(work);
+			m_GlobalQueues[tidx].push(work);
 			m_WaitCondition.notify_one(); // wake up a thread (if any was waiting)
 
 			return true;
 		}
 
 		// if a specific execution thread was set, plonk it in the appropriate local queue
-		m_LocalQueues[*work->m_ThreadIndex]->push(work);
+		m_LocalQueues[l_ThreadIndex].push(work);
 		m_WaitCondition.notify_one();
 
 		return true;

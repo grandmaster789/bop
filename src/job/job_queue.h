@@ -11,10 +11,11 @@ namespace bop::job {
 	public:
 		JobQueue() noexcept = default;
 
-		JobQueue             (const JobQueue&) noexcept = delete;
+		// the atomic flag makes it kind of difficult to put this in a vector...
+		JobQueue             (const JobQueue&) noexcept = delete; 
 		JobQueue& operator = (const JobQueue&) noexcept = delete;
-		JobQueue             (JobQueue&&)      noexcept = default;
-		JobQueue& operator = (JobQueue&&)      noexcept = default;
+		JobQueue             (JobQueue&&)      noexcept = delete;
+		JobQueue& operator = (JobQueue&&)      noexcept = delete;
 		
 		uint32_t clear(); // returns the number of jobs cleared
 		uint32_t size();  // returns the number of jobs currently in the queue (may be synchronized)
@@ -24,7 +25,8 @@ namespace bop::job {
 		Job* pop(); // returns nullptr if there's nothing to return
 
 	private:
-		std::atomic_flag m_Lock = ATOMIC_FLAG_INIT; // we're using this as a non-reentrant mutex
+		// we're using this flag as a non-reentrant mutex; as a consequence, this object must be memory-stable
+		std::atomic_flag m_Lock = ATOMIC_FLAG_INIT; 
 
 		Job* m_Head = nullptr;
 		Job* m_Tail = nullptr;

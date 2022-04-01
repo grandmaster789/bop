@@ -24,10 +24,10 @@ namespace bop::job {
 		static constexpr uint32_t k_RecyclingCapacity = 1 << 10;
 
 	public:
-		using MemoryResource  = std::pmr::memory_resource;
-		using JobAllocator    = std::pmr::polymorphic_allocator<Job>;
-		using UniqueMutex     = std::unique_ptr<std::mutex>;
-		using UniqueJobQueue  = std::unique_ptr<JobQueue>;
+		using MemoryResource = std::pmr::memory_resource;
+		using JobAllocator   = std::pmr::polymorphic_allocator<Job>;
+		using JobQueueArray  = std::unique_ptr<JobQueue[]>;
+		using MutexArray     = std::unique_ptr<std::mutex[]>;
 
 		JobSystem(
 			std::optional<uint32_t> num_threads     = std::nullopt,                   // by default this will use the hardware concurrency
@@ -88,19 +88,22 @@ namespace bop::job {
 
 		// queue related
 		// (the unique_ptr to the queue is to make the queues themselves memory-stable)
-		static inline std::vector<UniqueJobQueue> m_GlobalQueues;
-		static inline std::vector<UniqueJobQueue> m_LocalQueues;
-		static inline std::condition_variable     m_WaitCondition;
-		static inline std::vector<UniqueMutex>    m_Mutexes;
+		static inline JobQueueArray            m_GlobalQueues;
+		static inline JobQueueArray            m_LocalQueues;
+		static inline std::condition_variable  m_WaitCondition;
+		static inline MutexArray               m_Mutexes;
 
 		// per-thread stuff
 		static inline thread_local uint32_t              l_ThreadIndex;
 		static inline thread_local Job*                  l_CurrentJob  = nullptr;
 		static inline thread_local JobQueueNonThreadsafe l_RecyclingBin;
 		static inline thread_local JobQueueNonThreadsafe l_GarbageBin;
+
+		// profiling/tracing/logging
 	};
 }
 
+// convenience functions that appropriately forward to the job system
 namespace bop {
 	job::Job* current_work();
 
@@ -113,7 +116,7 @@ namespace bop {
 	) noexcept;
 
 	template <typename Fn>
-	void continuation(Fn&& f) noexcept;
+	void schedule_continuation(Fn&& f) noexcept; // this is for coroutines
 
 	void shutdown();
 	void wait_for_shutdown();

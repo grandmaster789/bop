@@ -55,7 +55,7 @@ namespace bop::job {
 		)
 			return; 
 
-		static_cast<Job*>(current)->m_Continuation = allocate(std::forward<T>(fn));
+		current->m_Continuation = allocate(std::forward<T>(fn));
 	}
 }
 
@@ -69,6 +69,7 @@ namespace bop {
 	) noexcept {
 		if constexpr (util::is_pmr_vector<std::decay_t<T>>::value) {
 			// we're adding multiple tasks at the same time
+			// NOTE do we want to explicitly put this code in a separate function?
 			if (!num_child_tasks)
 				num_child_tasks = static_cast<uint32_t>(work.size());
 
@@ -96,5 +97,10 @@ namespace bop {
 					num_child_tasks
 				);
 		}
+	}
+
+	template <typename Fn>
+	void schedule_continuation(Fn&& f) noexcept {
+		job::JobSystem::schedule_continuation(std::forward<Fn>(f));
 	}
 }
