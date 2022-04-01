@@ -5,8 +5,8 @@
 
 namespace bop::job {
 	JobSystem::JobSystem(
-		util::ThreadCount num_threads,
-		MemoryResource*   memory_resource
+		std::optional<uint32_t> num_threads,
+		MemoryResource*         memory_resource
 	) noexcept {
 		// make sure that the system is initialized just once
 		{
@@ -22,10 +22,10 @@ namespace bop::job {
 		// initalize (static) members
 		m_MemoryResource = memory_resource;
 		
-		if (num_threads.m_Count < 0) // NOTE m_NumThreads is unsigned, so check the signed source
+		if (!num_threads) // NOTE m_NumThreads is unsigned, so check the signed source
 			m_NumThreads = std::thread::hardware_concurrency();
 		else
-			m_NumThreads = static_cast<uint32_t>(num_threads.m_Count);
+			m_NumThreads = *num_threads;
 
 		if (m_NumThreads == 0)
 			m_NumThreads = 1; // always have at least one worker
@@ -188,8 +188,8 @@ namespace bop::job {
 		return l_ThreadIndex;
 	}
 
-	util::ThreadCount JobSystem::get_num_threads() const noexcept {
-		return util::ThreadCount(m_NumThreads.load());
+	uint32_t JobSystem::get_num_threads() const noexcept {
+		return m_NumThreads;
 	}
 
 	JobSystem::MemoryResource* JobSystem::get_memory_resource() const noexcept {

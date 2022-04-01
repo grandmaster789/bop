@@ -9,12 +9,12 @@
 #include <thread>
 #include <unordered_map>
 #include <vector>
+#include <optional>
 
 #include "job.h"
 #include "job_queue.h"
 #include "../util/thread_types.h"
 #include "../util/tag.h"
-#include "../util/function.h"
 #include "../util/traits.h"
 
 namespace bop::job {
@@ -32,8 +32,8 @@ namespace bop::job {
 		using UniqueJobQueue  = std::unique_ptr<JobQueue>;
 
 		JobSystem(
-			util::ThreadCount num_threads     = util::ThreadCount(),
-			MemoryResource*   memory_resource = std::pmr::new_delete_resource()
+			std::optional<uint32_t> num_threads     = std::nullopt,                   // by default this will use the hardware concurrency
+			MemoryResource*         memory_resource = std::pmr::new_delete_resource()
 		) noexcept;
 		
 		JobSystem             (const JobSystem&)     = delete;
@@ -56,7 +56,6 @@ namespace bop::job {
 		// this should be the mainly used entrypoint for scheduling work - either
 		// some kind of invocable or tag is allowed
 		template <typename T>
-		requires util::c_functor<T>
 		uint32_t schedule(
 			T&&       fn, 
 			Job*      parent       = m_CurrentJob,
@@ -64,21 +63,19 @@ namespace bop::job {
 		);
 
 		util::ThreadIndex get_thread_index() const noexcept;
-		util::ThreadCount get_num_threads() const noexcept;
+		uint32_t          get_num_threads() const noexcept;
 		MemoryResource*   get_memory_resource() const noexcept;
 
 	private:
 		Job* allocate();
 
 		template <typename Fn>
-		requires util::c_functor<Fn>
 		Job* allocate(Fn&& fn) noexcept;
 
 		// schedules a job, optionally for execution during a tagged phase
 		bool schedule_work(Job* work) noexcept; // returns true if it is scheduled generically and false for a tagged phase
 
 		template <typename T>
-		requires util::c_functor<T>
 		void schedule_continuation(T&& fn) noexcept;
 
 		// pool-related
@@ -108,9 +105,6 @@ namespace bop {
 	job::Job* current_work();
 
 	template <typename T>
-	requires
-		util::c_functor<T> ||
-		util::is_pmr_vector<std::decay_t<T>>::value
 	uint32_t schedule(
 		T&&       work,
 		job::Job* parent          = current_work(),

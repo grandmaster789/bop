@@ -14,7 +14,7 @@ add_executable(${BOP}
 	"util/concepts.h"
 	"util/thread_types.h"
 	"util/traits.h"
-	"util/function.h"
+	
 		
 	"util/tag.h"
  "job/job_queue.cpp")

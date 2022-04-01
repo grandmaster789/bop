@@ -1,25 +1,29 @@
 #pragma once
 
 #include <atomic>
-#include <memory_resource>
 #include <chrono>
+#include <functional>
+#include <memory_resource>
 
 #include "../util/thread_types.h"
-#include "../util/function.h"
 
 namespace bop::job {
 	class Job;
 
 	struct JobDeallocator {
-		virtual void operator()(Job* job) noexcept;
+		virtual void operator()(Job* job) noexcept; // pmr 
 	};
 
 	class Job {
 	public:
+		using void_function_ptr = void(*)();
+
 		friend class JobSystem;
 		friend class JobDeallocator; // because this needs to access the memory resource
 
-		Job(std::pmr::memory_resource* resource);
+		// pmr-aware allocation (just stores the resource pointer)
+		// (allocation is done in JobSystem::allocate)
+		Job(std::pmr::memory_resource* resource); 
 
 		virtual JobDeallocator get_deallocator() noexcept;
 
@@ -43,7 +47,7 @@ namespace bop::job {
 		util::ThreadIndex          m_ThreadIndex;
 		std::pmr::memory_resource* m_MemoryResource = nullptr;
 
-		util::Function          m_Work;
-		util::void_function_ptr m_WorkFnPtr;
+		std::function<void()>      m_Work;
+		void_function_ptr          m_WorkFnPtr;
 	};
 }

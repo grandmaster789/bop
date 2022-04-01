@@ -4,8 +4,7 @@ namespace bop::job {
 	/***** JobDeallocator *****/
 	void JobDeallocator::operator()(Job* job) noexcept {
 		std::pmr::polymorphic_allocator<Job> allocator(job->m_MemoryResource);
-		job->~Job(); // explicitly call the destructor
-		allocator.deallocate(job, 1);
+		allocator.destroy(job);
 	}
 
 	/***** Job *****/

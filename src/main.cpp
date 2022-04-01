@@ -4,7 +4,6 @@
 #include <thread>
 
 #include "util/traits.h"
-#include "util/function.h"
 #include "util/concepts.h"
 
 #include "job/job.h"

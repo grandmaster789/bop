@@ -5,8 +5,6 @@
 
 namespace bop::job {
 	template <typename T>
-	requires
-		util::c_functor<T>
 	uint32_t JobSystem::schedule(
 		T &&      fn,
 		Job*      parent,
@@ -19,15 +17,14 @@ namespace bop::job {
 	}
 
 	template <typename Fn>
-	requires util::c_functor<Fn>
 	Job* JobSystem::allocate(Fn&& fn) noexcept {
 		Job* result = allocate(); // use basic allocation first
 
 		// forward the lambda/functionpointer/function wrapper/invocable etc to the correct field
 		// 
 		// if we can, initialize it using Function members (which may have a thread spec)
-		if constexpr (std::is_same_v<std::decay<Fn>, util::Function>) {
-			result->m_Work        = fn.get_function();
+		if constexpr (std::is_invocable_v<std::decay<Fn>>) {
+			result->m_Work        = std::forward<Fn>(fn);
 			result->m_WorkFnPtr   = nullptr;
 			result->m_ThreadIndex = fn.m_ThreadIndex;
 		}
@@ -47,7 +44,6 @@ namespace bop::job {
 	}
 
 	template <typename T>
-	requires util::c_functor<T>
 	void JobSystem::schedule_continuation(T&& fn) noexcept {
 		Job* current = get_current_work();
 
@@ -63,9 +59,6 @@ namespace bop::job {
 
 namespace bop {
 	template <typename T>
-	requires
-		util::c_functor<T> ||
-		util::is_pmr_vector<std::decay_t<T>>::value
 	uint32_t schedule(
 		T&&       work,
 		job::Job* parent,
