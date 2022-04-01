@@ -6,27 +6,29 @@
 namespace bop::job {
 	template <typename T>
 	uint32_t JobSystem::schedule(
-		T &&      fn,
-		Job*      parent,
-		int32_t   num_children
+		T &&                    fn,
+		Job*                    parent,
+		std::optional<uint32_t> thread_index
 	) {
-		Job* work = allocate(std::forward<T>(fn));
+		Job* work = construct(std::forward<T>(fn), thread_index);
 		work->m_Parent = nullptr;
-
 		return schedule_work(work);
 	}
 
 	template <typename Fn>
-	Job* JobSystem::allocate(Fn&& fn) noexcept {
-		Job* result = allocate(); // use basic allocation first
+	Job* JobSystem::construct(
+		Fn&&                    fn,
+		std::optional<uint32_t> thread_index
+	) noexcept {
+		Job* result = allocate(); // do allocation first
 
 		// forward the lambda/functionpointer/function wrapper/invocable etc to the correct field
 		// 
-		// if we can, initialize it using Function members (which may have a thread spec)
+		// if we can, initialize it using the given thread index
 		if constexpr (std::is_invocable_v<std::decay<Fn>>) {
 			result->m_Work        = std::forward<Fn>(fn);
 			result->m_WorkFnPtr   = nullptr;
-			result->m_ThreadIndex = fn.m_ThreadIndex;
+			result->m_ThreadIndex = thread_index;
 		}
 		else {	
 			// see if this is a plain global function pointer
@@ -60,16 +62,17 @@ namespace bop::job {
 namespace bop {
 	template <typename T>
 	uint32_t schedule(
-		T&&       work,
-		job::Job* parent,
-		int32_t   num_child_tasks
+		T&&                     work,
+		job::Job*               parent,
+		std::optional<uint32_t> thread_index,
+		std::optional<uint32_t> num_child_tasks
 	) noexcept {
 		if constexpr (util::is_pmr_vector<std::decay_t<T>>::value) {
 			// we're adding multiple tasks at the same time
-			if (num_child_tasks < 0)
-				num_child_tasks = static_cast<int32_t>(work.size());
+			if (!num_child_tasks)
+				num_child_tasks = static_cast<uint32_t>(work.size());
 
-			int32_t result = num_child_tasks;
+			uint32_t result = num_child_tasks;
 			
 			for (auto&& f : work) {
 				schedule(

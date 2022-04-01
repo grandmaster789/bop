@@ -4,8 +4,7 @@
 #include <chrono>
 #include <functional>
 #include <memory_resource>
-
-#include "../util/thread_types.h"
+#include <optional>
 
 namespace bop::job {
 	class Job;
@@ -44,7 +43,7 @@ namespace bop::job {
 		Job*                       m_Next           = nullptr; // singly linked
 		Job*                       m_Continuation   = nullptr;
 		bool                       m_IsFunction     = false;
-		util::ThreadIndex          m_ThreadIndex;
+		std::optional<uint32_t>    m_ThreadIndex    = std::nullopt;
 		std::pmr::memory_resource* m_MemoryResource = nullptr;
 
 		std::function<void()>      m_Work;

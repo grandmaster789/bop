@@ -13,8 +13,6 @@
 
 #include "job.h"
 #include "job_queue.h"
-#include "../util/thread_types.h"
-#include "../util/tag.h"
 #include "../util/traits.h"
 
 namespace bop::job {
@@ -48,7 +46,7 @@ namespace bop::job {
 		void on_completed(Job* work) noexcept; // called when all children of a job + itself have completed
 		bool child_completed(Job* job) noexcept;
 
-		void worker(util::ThreadIndex idx = util::ThreadIndex(0)) noexcept;
+		void worker(uint32_t thread_index) noexcept;
 		void recycle(Job* work) noexcept;
 
 		static Job* get_current_work() noexcept; // yields the thread-local job currently being executed
@@ -57,22 +55,24 @@ namespace bop::job {
 		// some kind of invocable or tag is allowed
 		template <typename T>
 		uint32_t schedule(
-			T&&       fn, 
-			Job*      parent       = m_CurrentJob,
-			int32_t   num_children = -1
+			T&&                     fn, 
+			Job*                    parent       = m_CurrentJob,
+			std::optional<uint32_t> thread_index = std::nullopt
 		);
 
-		util::ThreadIndex get_thread_index() const noexcept;
-		uint32_t          get_num_threads() const noexcept;
-		MemoryResource*   get_memory_resource() const noexcept;
+		uint32_t        get_thread_index() const noexcept;
+		uint32_t        get_num_threads() const noexcept;
+		MemoryResource* get_memory_resource() const noexcept;
 
 	private:
 		Job* allocate();
 
 		template <typename Fn>
-		Job* allocate(Fn&& fn) noexcept;
+		Job* construct(
+			Fn&&                    fn, 
+			std::optional<uint32_t> thread_index = std::nullopt
+		) noexcept;
 
-		// schedules a job, optionally for execution during a tagged phase
 		bool schedule_work(Job* work) noexcept; // returns true if it is scheduled generically and false for a tagged phase
 
 		template <typename T>
@@ -94,8 +94,8 @@ namespace bop::job {
 		static inline std::vector<UniqueMutex>    m_Mutexes;
 
 		// per-thread stuff
-		static inline thread_local util::ThreadIndex     l_ThreadIndex;
-		static inline thread_local Job*                  l_CurrentJob = nullptr;
+		static inline thread_local uint32_t              l_ThreadIndex;
+		static inline thread_local Job*                  l_CurrentJob  = nullptr;
 		static inline thread_local JobQueueNonThreadsafe l_RecyclingBin;
 		static inline thread_local JobQueueNonThreadsafe l_GarbageBin;
 	};
@@ -106,9 +106,10 @@ namespace bop {
 
 	template <typename T>
 	uint32_t schedule(
-		T&&       work,
-		job::Job* parent          = current_work(),
-		int32_t   num_child_tasks = -1
+		T&&                     work,
+		job::Job*               parent          = current_work(),
+		std::optional<uint32_t> thread_index    = std::nullopt,
+		std::optional<uint32_t> num_child_tasks = std::nullopt
 	) noexcept;
 
 	template <typename Fn>

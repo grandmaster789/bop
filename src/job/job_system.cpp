@@ -42,7 +42,7 @@ namespace bop::job {
 			m_WorkerThreads.push_back(std::thread(
 				&JobSystem::worker, 
 				this, 
-				util::ThreadIndex{ static_cast<int>(i) }
+				i
 			));
 
 			m_WorkerThreads[i].detach();
@@ -96,12 +96,12 @@ namespace bop::job {
 		return false; // more stuff to do
 	}
 
-	void JobSystem::worker(util::ThreadIndex idx) noexcept {
+	void JobSystem::worker(uint32_t thread_index) noexcept {
 		constexpr uint32_t k_LoopsUntilGC = 1 << 8;
 
 		thread_local static uint32_t l_no_work_counter = 0;
 
-		l_ThreadIndex = idx;
+		l_ThreadIndex = thread_index;
 
 		// wait until all threads are started
 		{
@@ -116,17 +116,17 @@ namespace bop::job {
 		}
 
 		// set up work-stealing indices
-		uint32_t steal_from = static_cast<uint32_t>(idx.m_Index + 1) % m_NumThreads.load();
+		uint32_t steal_from = (thread_index + 1) % m_NumThreads.load();
 
-		std::unique_lock lock(*m_Mutexes[l_ThreadIndex.m_Index]);
+		std::unique_lock lock(*m_Mutexes[l_ThreadIndex]);
 
 		// do work while we're not done
 		while (!m_Shutdown) {
 			// prioritize local queue over the global one (should have less contention)
-			l_CurrentJob = m_LocalQueues[l_ThreadIndex.m_Index]->pop();
+			l_CurrentJob = m_LocalQueues[l_ThreadIndex]->pop();
 
 			if (!l_CurrentJob)
-				l_CurrentJob = m_GlobalQueues[l_ThreadIndex.m_Index]->pop();
+				l_CurrentJob = m_GlobalQueues[l_ThreadIndex]->pop();
 
 			// if we still don't have any work yet try to steal it from another global queue
 			uint32_t numStealAttempts = m_NumThreads - 1;
@@ -162,8 +162,8 @@ namespace bop::job {
 		}
 
 		// we're outside of the execution loop; shutdown was triggered so do cleanup this workers' resources
-		m_GlobalQueues[l_ThreadIndex.m_Index]->clear();
-		m_LocalQueues[l_ThreadIndex.m_Index]->clear();
+		m_GlobalQueues[l_ThreadIndex]->clear();
+		m_LocalQueues[l_ThreadIndex]->clear();
 		l_RecyclingBin.clear();
 		l_GarbageBin.clear();
 
@@ -184,7 +184,7 @@ namespace bop::job {
 		return l_CurrentJob;
 	}
 	
-	util::ThreadIndex JobSystem::get_thread_index() const noexcept {
+	uint32_t JobSystem::get_thread_index() const noexcept {
 		return l_ThreadIndex;
 	}
 
@@ -220,25 +220,25 @@ namespace bop::job {
 	}
 
 	bool JobSystem::schedule_work(Job* work) noexcept {
-		static thread_local util::ThreadIndex tidx(0);
+		static thread_local uint32_t tidx(0); // simplest possible load-balancing
 
 		// if no specific execution thread was set, plonk it any global queue
 		if (
-			(work->m_ThreadIndex.m_Index < 0) ||
-			(work->m_ThreadIndex.m_Index >= static_cast<int>(m_NumThreads))
+			(!work->m_ThreadIndex) ||
+			(*work->m_ThreadIndex >= m_NumThreads)
 		) {
-			++tidx.m_Index;
-			if (tidx.m_Index >= m_NumThreads)
-				tidx.m_Index = 0;
+			++tidx;
+			if (tidx >= m_NumThreads)
+				tidx = 0;
 
-			m_GlobalQueues[tidx.m_Index]->push(work);
+			m_GlobalQueues[tidx]->push(work);
 			m_WaitCondition.notify_one(); // wake up a thread (if any was waiting)
 
 			return true;
 		}
 
 		// if a specific execution thread was set, plonk it in the appropriate local queue
-		m_LocalQueues[work->m_ThreadIndex.m_Index]->push(work);
+		m_LocalQueues[*work->m_ThreadIndex]->push(work);
 		m_WaitCondition.notify_one();
 
 		return true;
