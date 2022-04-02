@@ -3,6 +3,7 @@
   "version-string": "0.0.1",
   "description": "Cross-platform C++20 coroutine library",
   "dependencies": [
-    "gtest"
+    "catch2",
+    "nlohmann-json"
   ]
 }
