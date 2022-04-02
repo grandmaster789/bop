@@ -1,26 +1,6 @@
 #include "job_queue.h"
 
 namespace bop::job {
-	uint32_t JobQueue::clear() {
-		uint32_t result = m_NumEntries;
-
-		// pop() is threadsafe but not re-entrant so don't acquire the lock here
-		for (auto* job = pop(); job; job = pop())
-			job->get_deallocator()(static_cast<Job*>(job));
-
-		return result;
-	}
-
-	uint32_t JobQueue::size() {
-		while (m_Lock.test_and_set(std::memory_order::acquire));
-		
-		uint32_t result = m_NumEntries;
-
-		m_Lock.clear(std::memory_order::release);
-
-		return result;
-	}
-
 	void JobQueue::push(Job* work) {
 		while (m_Lock.test_and_set(std::memory_order::acquire));
 
@@ -61,7 +41,7 @@ namespace bop::job {
 		return result;
 	}
 
-	uint32_t JobQueueNonThreadsafe::clear() {
+	uint32_t JobQueue::clear() {
 		uint32_t result = m_NumEntries;
 
 		// pop() is threadsafe but not re-entrant so don't acquire the lock here
@@ -71,8 +51,12 @@ namespace bop::job {
 		return result;
 	}
 
-	uint32_t JobQueueNonThreadsafe::size() {
+	uint32_t JobQueue::size() {
+		while (m_Lock.test_and_set(std::memory_order::acquire));
+
 		uint32_t result = m_NumEntries;
+
+		m_Lock.clear(std::memory_order::release);
 
 		return result;
 	}
@@ -105,6 +89,22 @@ namespace bop::job {
 			if (result == m_Tail)
 				m_Tail = nullptr;
 		}
+
+		return result;
+	}
+
+	uint32_t JobQueueNonThreadsafe::clear() {
+		uint32_t result = m_NumEntries;
+
+		// pop() is threadsafe but not re-entrant so don't acquire the lock here
+		for (auto* job = pop(); job; job = pop())
+			job->get_deallocator()(static_cast<Job*>(job));
+
+		return result;
+	}
+
+	uint32_t JobQueueNonThreadsafe::size() {
+		uint32_t result = m_NumEntries;
 
 		return result;
 	}

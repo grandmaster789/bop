@@ -17,12 +17,12 @@ namespace bop::job {
 		JobQueue             (JobQueue&&)      noexcept = delete;
 		JobQueue& operator = (JobQueue&&)      noexcept = delete;
 		
-		uint32_t clear(); // returns the number of jobs cleared
-		uint32_t size();  // returns the number of jobs currently in the queue (may be synchronized)
-
 		// NOTE push/pop mechanics are non-owning!
 		void push(Job* work);
 		Job* pop(); // returns nullptr if there's nothing to return
+
+		uint32_t clear(); // returns the number of jobs cleared
+		uint32_t size();  // returns the number of jobs currently in the queue (may be synchronized)
 
 	private:
 		// we're using this flag as a non-reentrant mutex; as a consequence, this object must be memory-stable
@@ -37,12 +37,12 @@ namespace bop::job {
 	// very similar design, but this one doesn't have locking and thus becomes Rule-of-zero compatible
 	class JobQueueNonThreadsafe {
 	public:
-		uint32_t clear(); // returns the number of jobs cleared
-		uint32_t size(); // returns the number of jobs currently in the queue
-
 		// NOTE push/pop mechanics are non-owning!
 		void push(Job* work);
 		Job* pop(); // returns nullptr if there's nothing to return
+
+		uint32_t clear(); // returns the number of jobs cleared
+		uint32_t size(); // returns the number of jobs currently in the queue
 
 	private:
 		Job* m_Head = nullptr;

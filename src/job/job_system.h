@@ -13,6 +13,7 @@
 
 #include "job.h"
 #include "job_queue.h"
+#include "job_trace.h"
 #include "../util/traits.h"
 
 namespace bop::job {
@@ -28,7 +29,11 @@ namespace bop::job {
 		using JobAllocator   = std::pmr::polymorphic_allocator<Job>;
 		using JobQueueArray  = std::unique_ptr<JobQueue[]>;
 		using MutexArray     = std::unique_ptr<std::mutex[]>;
+		using Clock          = std::chrono::high_resolution_clock;
+		using Timepoint      = Clock::time_point;
+		using TraceLog       = std::pmr::vector<JobTrace>;
 
+		// even when using a monotonic buffer this should be fairly stable (probably?)
 		JobSystem(
 			std::optional<uint32_t> num_threads     = std::nullopt,                   // by default this will use the hardware concurrency
 			MemoryResource*         memory_resource = std::pmr::new_delete_resource()
@@ -49,7 +54,7 @@ namespace bop::job {
 		void worker(uint32_t thread_index) noexcept;
 		void recycle(Job* work) noexcept;
 
-		static Job* get_current_work() noexcept; // yields the thread-local job currently being executed
+		static Job* get_current_work() noexcept; // yields the thread-local(!) job currently being executed
 		
 		// this should be the mainly used entrypoint for scheduling work - either
 		// some kind of invocable or tag is allowed
@@ -93,13 +98,16 @@ namespace bop::job {
 		static inline std::condition_variable  m_WaitCondition;
 		static inline MutexArray               m_Mutexes;
 
+		// profiling/tracing/logging
+		static inline Timepoint                  m_ApplicationStart;
+		static inline std::pmr::vector<TraceLog> m_Traces;
+		static inline bool                       m_DoLogging = false;
+
 		// per-thread stuff
 		static inline thread_local uint32_t              l_ThreadIndex;
 		static inline thread_local Job*                  l_CurrentJob  = nullptr;
 		static inline thread_local JobQueueNonThreadsafe l_RecyclingBin;
 		static inline thread_local JobQueueNonThreadsafe l_GarbageBin;
-
-		// profiling/tracing/logging
 	};
 }
 
