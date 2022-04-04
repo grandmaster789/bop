@@ -1,5 +1,7 @@
 #include "job_system.h"
 
+#include <nlohmann/json.hpp>
+
 #include <iostream>
 #include <fstream>
 
@@ -9,6 +11,7 @@ namespace bop::job {
 		MemoryResource*         memory_resource
 	) noexcept {
 		// make sure that the system is initialized just once
+		// (we're initializing static variables via a non-static object construction)
 		{
 			if (m_InitOnce > 0)
 				[[likely]]
@@ -30,11 +33,15 @@ namespace bop::job {
 		if (m_NumThreads == 0)
 			m_NumThreads = 1; // always have at least one worker
 
+		m_ApplicationStart = Clock::now();
+
 		// initialize queue logic for all worker threads
 		// sadness - the semantics of vector 
 		m_GlobalQueues = std::make_unique<JobQueue[]>(m_NumThreads);
 		m_LocalQueues  = std::make_unique<JobQueue[]>(m_NumThreads);
 		m_Mutexes      = std::make_unique<std::mutex[]>(m_NumThreads);
+
+		m_Traces.resize(m_NumThreads, TraceLog(memory_resource));
 
 		// launch and detach worker threads
 		for (uint32_t i = 0; i < m_NumThreads; ++i) {
@@ -138,12 +145,26 @@ namespace bop::job {
 
 			// if we have a job, execute it
 			if (l_CurrentJob) {
+				Timepoint job_start;
+
+				if constexpr (k_EnableProfiling) {
+					job_start = Clock::now();
+				}
+
 				// before doing the work, remember if this was a regular function or a coroutine
 				// (in the coro case the job may destroy itself)
 				bool is_function = l_CurrentJob->is_function(); 
 
 				(*l_CurrentJob)(); // do the actual work
 				
+				if constexpr (k_EnableProfiling) {
+					store_trace(
+						job_start,
+						Clock::now(),
+						l_ThreadIndex
+					);
+				}
+
 				if (is_function)
 					child_completed(l_CurrentJob);
 
@@ -168,8 +189,13 @@ namespace bop::job {
 
 		// the last worker may save the trace report
 		uint32_t active_workers = m_NumThreads.fetch_sub(1);
-		if (active_workers == 1)
+		if (active_workers == 1) {
+			if constexpr (k_EnableProfiling) {
+				save_tracelog();
+			}
+
 			m_ShutdownComplete = true;
+		}
 	}
 
 	void JobSystem::recycle(Job* work) noexcept {
@@ -241,6 +267,64 @@ namespace bop::job {
 		m_WaitCondition.notify_one();
 
 		return true;
+	}
+
+	void JobSystem::store_trace(
+		const Timepoint& job_start,
+		const Timepoint& job_current,
+		uint32_t         executing_thread_index
+	) {
+		m_Traces[executing_thread_index].push_back(JobTrace(
+			job_start,
+			job_current,
+			executing_thread_index
+		));
+	}
+
+	void JobSystem::save_tracelog() {
+		// this saves tracing data in a chrome-compatible format
+		// more info @ https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview
+
+		auto make_entry = [&](const JobTrace& trace) {
+			using namespace std::chrono;
+
+			nlohmann::json thread_events;
+
+			auto start_time_ms = duration_cast<milliseconds>(trace.m_StartTime - m_ApplicationStart);
+			auto duration_ms   = duration_cast<milliseconds>(trace.m_CurrentTime - trace.m_StartTime);
+
+			thread_events["cat"]  = "cat";                 // categories (comma separated)
+			thread_events["pid"]  = 0;                     // process ID
+			thread_events["tid"]  = trace.m_ThreadIndex;   // executing thread ID
+			thread_events["ts"]   = start_time_ms.count(); // tracing clock timestamp
+			thread_events["dur"]  = duration_ms.count();   // duration (specific to 'complete' events)
+			thread_events["ph"]   = "X";                   // program phase - X is 'complete' event (pp 4)
+			thread_events["name"] = "-";                   // display name; we could possibly put a job type here
+			thread_events["args"] = nlohmann::json();      // may hold any additional information
+
+			return thread_events;
+		};
+
+		nlohmann::json js;
+
+		for (const auto& thread_log : m_Traces)
+			for (const auto& thread_evt : thread_log)
+				js["traceEvents"].push_back(make_entry(thread_evt));
+
+		js["displayTimeUnit"] = "ms"; // either "ms" or "ns"
+		
+		// the remaining keys are optional and not needed for our usage
+
+		std::ofstream out("tracelog.json");
+		if (!out.good())
+			std::cerr << "Failed to create/open tracelog.json\n";
+		else
+			out	<< std::setw(2) << js;
+	}
+
+	void JobSystem::clear_tracelog() {
+		for (auto& log : m_Traces)
+			log.clear();
 	}
 }
 

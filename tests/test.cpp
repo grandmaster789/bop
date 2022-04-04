@@ -12,4 +12,5 @@ unsigned int factorial(unsigned int number) {
 
 TEST_CASE("testing", "[factorial]") {
     REQUIRE(factorial(1) == 1);
+    REQUIRE(factorial(6) == 720);
 }

@@ -17,7 +17,7 @@ add_executable(${BOP}
 	
 		
 	
- "job/job_queue.cpp" "job/job_trace.h" "job/job_trace.cpp")
+ "job/job_queue.cpp" "job/job_trace.h" "job/job_trace.cpp" "util/curry.h")
 
 target_link_libraries(${BOP} PRIVATE 
 	nlohmann_json 

@@ -23,7 +23,8 @@ namespace bop::job {
 	class JobSystem {
 	private:
 		static constexpr uint32_t k_RecyclingCapacity = 1 << 10;
-
+		static constexpr bool     k_EnableProfiling   = true; // when true, a tracelog.json is generated at shutdown that can be viewed in chrome about://tracing
+		
 	public:
 		using MemoryResource = std::pmr::memory_resource;
 		using JobAllocator   = std::pmr::polymorphic_allocator<Job>;
@@ -83,6 +84,14 @@ namespace bop::job {
 		template <typename T>
 		void schedule_continuation(T&& fn) noexcept;
 
+		void store_trace(
+			const Timepoint& job_start,
+			const Timepoint& job_end,
+			uint32_t         executing_thread_index
+		);
+		void save_tracelog();
+		void clear_tracelog();
+
 		// pool-related
 		static inline std::atomic<uint64_t>    m_InitOnce         = 0;
 		static inline MemoryResource*          m_MemoryResource   = nullptr;
@@ -91,8 +100,7 @@ namespace bop::job {
 		static inline std::atomic<bool>        m_Shutdown         = false;   // flag to stop workers
 		static inline std::atomic<bool>        m_ShutdownComplete = false;   // when true, all worker threads have stopped
 
-		// queue related
-		// (the unique_ptr to the queue is to make the queues themselves memory-stable)
+		// queue related (these are accessible from all running workers)
 		static inline JobQueueArray            m_GlobalQueues;
 		static inline JobQueueArray            m_LocalQueues;
 		static inline std::condition_variable  m_WaitCondition;
