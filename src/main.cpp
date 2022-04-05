@@ -10,6 +10,9 @@
 #include "job/job_queue.h"
 #include "job/job_system.h"
 
+#include "job/co_job.h"
+#include "job/co_job_promise.h"
+
 int main() {
 	std::cout << "Starting application\n";
 

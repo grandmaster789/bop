@@ -18,6 +18,7 @@ namespace bop::job {
 		JobQueue& operator = (JobQueue&&)      noexcept = delete;
 		
 		// NOTE push/pop mechanics are non-owning!
+		//      by using pointers we also support derived types
 		void push(Job* work);
 		Job* pop(); // returns nullptr if there's nothing to return
 
