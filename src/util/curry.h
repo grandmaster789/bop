@@ -24,4 +24,26 @@ namespace bop::util {
 			};
 		}
 	}
+
+	// NOTE a weird interaction with multiple parameter packs... consider
+	// 
+	// template <typename...Ts, typename...Us>
+	// int some_fn(Ts... ts, Us... us);
+	//
+	// here, the Ts are *only* matched against explicit parameters
+	// and the Us are *greedily* deduced in a right-to-left fashion
+	//
+	// e.g.
+	//		some_fn          (1, 2, 3); // Ts is <>, Us is <int, int, int>
+	//      some_fn<int, int>(1, 2, 3); // Ts is <int, int>, Us is <int>
+	//
+	// BUT there is some weird interaction between the matching rules possible
+	//
+	// template <typename...Ts, typename... Us, typename V>
+	// int corner_case(Ts..., Us..., V);
+	//
+	// e.g.
+	//      corner_case     (1);       // Ts is <>, Us is <>, 
+	//      corner_case     (1, 2);    // (!) Ts is <int>, Us is <>, V is <int> ? illegal interaction, no diagnostic required :P
+	//      corner_case<int>(1, 2, 3); // Ts is <int>, Us is <int>, V is <int>
 }

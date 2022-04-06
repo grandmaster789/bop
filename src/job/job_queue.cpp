@@ -96,7 +96,6 @@ namespace bop::job {
 	uint32_t JobQueueNonThreadsafe::clear() {
 		uint32_t result = m_NumEntries;
 
-		// pop() is threadsafe but not re-entrant so don't acquire the lock here
 		for (auto* job = pop(); job; job = pop())
 			job->get_deallocator()(static_cast<Job*>(job));
 

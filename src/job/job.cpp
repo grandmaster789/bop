@@ -4,7 +4,7 @@ namespace bop::job {
 	/***** JobDeallocator *****/
 	void JobDeallocator::operator()(Job* job) noexcept {
 		std::pmr::polymorphic_allocator<Job> allocator(job->m_MemoryResource);
-		allocator.destroy(job);
+		allocator.deallocate_object(job); // job doesn't have a destructor
 	}
 
 	/***** Job *****/
@@ -16,36 +16,24 @@ namespace bop::job {
 		resume();
 	}
 
-	bool Job::is_function() noexcept {
-		return m_IsFunction;
-	}
-
 	Job::Job(std::pmr::memory_resource* resource):
 		m_MemoryResource(resource)
 	{
 		m_NumChildren = 1;
-		m_IsFunction  = true;
 	}
 
 	void Job::reset() noexcept {
-		m_Next         = nullptr;
 		m_NumChildren  = 1;
+		m_Next         = nullptr;
 		m_Parent       = nullptr;
-		m_Continuation = nullptr;
 	}
 
 	bool Job::resume() noexcept {
-		m_NumChildren = 1;
-
 		if (m_WorkFnPtr)
 			m_WorkFnPtr();
 		else
 			m_Work();
 
-		return true;
-	}
-
-	bool Job::deallocate() noexcept {
 		return true;
 	}
 

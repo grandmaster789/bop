@@ -71,16 +71,6 @@ namespace bop::job {
 	}
 
 	void JobSystem::on_completed(Job* work) noexcept {
-		// if a continuation is present in the work, schedule it
-		if (work->m_Continuation) {
-			if (work->m_Parent) {
-				++work->m_Parent->m_NumChildren;                 // we have more work to do
-				work->m_Continuation->m_Parent = work->m_Parent; // propagate the parent from the previous stage
-			}
-
-			schedule_work(work->m_Continuation);
-		}
-
 		if (work->m_Parent)
 			child_completed(work->m_Parent); // let the parent know that a child task has completed
 
@@ -91,11 +81,7 @@ namespace bop::job {
 		uint32_t remaining = job->m_NumChildren.fetch_sub(1);
 
 		if (remaining <= 1) { // at some point, there's no more child tasks remaining
-			if (job->is_function())
-				on_completed(job);
-			else
-				schedule_work(job); // this is the coro case, which just needs to be rescheduled
-
+			on_completed(job);
 			return true; // this job was fully completed
 		}
 
@@ -153,8 +139,6 @@ namespace bop::job {
 
 				// before doing the work, remember if this was a regular function or a coroutine
 				// (in the coro case the job may destroy itself)
-				bool is_function = l_CurrentJob->is_function(); 
-
 				(*l_CurrentJob)(); // do the actual work
 				
 				if constexpr (k_EnableProfiling) {
@@ -165,8 +149,7 @@ namespace bop::job {
 					);
 				}
 
-				if (is_function)
-					child_completed(l_CurrentJob);
+				child_completed(l_CurrentJob);
 
 				l_no_work_counter = 0;
 			}
@@ -221,7 +204,7 @@ namespace bop::job {
 		return m_MemoryResource;
 	}
 
-	Job* JobSystem::allocate() {
+	Job* JobSystem::create_job() {
 		// first see if we have anything we can recycle
 		Job* result = l_RecyclingBin.pop();
 
@@ -231,12 +214,15 @@ namespace bop::job {
 			//      that would make cleanup more difficult though...
 			JobAllocator allocator(m_MemoryResource);
 
-			result = allocator.new_object<Job>(m_MemoryResource);
+			//result = allocator.new_object<Job>(m_MemoryResource);
+			result = allocator.allocate_object<Job>(1);
 
 			if (!result) {
-				std::cerr << "Failed to create a job\n";
+				std::cerr << "Failed to allocate a job\n";
 				std::terminate();
 			}
+
+			allocator.construct(result, m_MemoryResource);
 		}
 		else
 			result->reset();

@@ -71,18 +71,16 @@ namespace bop::job {
 		MemoryResource* get_memory_resource() const noexcept;
 
 	private:
-		Job* allocate();
+		Job* create_job();
 
 		template <typename Fn>
 		Job* construct(
 			Fn&&                    fn, 
-			std::optional<uint32_t> thread_index = std::nullopt
+			Job*                    parent,
+			std::optional<uint32_t> thread_index
 		) noexcept;
 
 		bool schedule_work(Job* work) noexcept; // returns true if it is scheduled generically and false for a tagged phase
-
-		template <typename T>
-		void schedule_continuation(T&& fn) noexcept;
 
 		void store_trace(
 			const Timepoint& job_start,
@@ -127,12 +125,8 @@ namespace bop {
 	uint32_t schedule(
 		T&&                     work,
 		job::Job*               parent          = current_work(),
-		std::optional<uint32_t> thread_index    = std::nullopt,
-		std::optional<uint32_t> num_child_tasks = std::nullopt
+		std::optional<uint32_t> thread_index    = std::nullopt
 	) noexcept;
-
-	template <typename Fn>
-	void schedule_continuation(Fn&& f) noexcept; // this is for coroutines
 
 	void shutdown();
 	void wait_for_shutdown();

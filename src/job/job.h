@@ -28,11 +28,8 @@ namespace bop::job {
 
 		void operator()() noexcept;
 
-		bool is_function() noexcept; // code smell... probably should use variant instead
-
 		void reset() noexcept;
 		bool resume() noexcept;
-		bool deallocate() noexcept;
 
 		void set_next(Job* j) noexcept;
 		Job* get_next() const noexcept;
@@ -41,8 +38,6 @@ namespace bop::job {
 		std::atomic<int>           m_NumChildren    = 0;
 		Job*                       m_Parent         = nullptr;
 		Job*                       m_Next           = nullptr; // singly linked
-		Job*                       m_Continuation   = nullptr;
-		bool                       m_IsFunction     = false;
 		std::optional<uint32_t>    m_ThreadIndex    = std::nullopt;
 		std::pmr::memory_resource* m_MemoryResource = nullptr;
 
