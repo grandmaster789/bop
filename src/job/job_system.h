@@ -19,6 +19,7 @@
 namespace bop::job {
 	/*
 	*	Program wide threadpool for executing Jobs (ie. void()-like invocable things)
+	*   The system owns the actual jobs, and takes care of memory management as needed
 	*/
 	class JobSystem {
 	private:
@@ -28,13 +29,13 @@ namespace bop::job {
 	public:
 		using MemoryResource = std::pmr::memory_resource;
 		using JobAllocator   = std::pmr::polymorphic_allocator<Job>;
+		using TraceLog       = std::pmr::vector<JobTrace>;
 		using JobQueueArray  = std::unique_ptr<JobQueue[]>;
 		using MutexArray     = std::unique_ptr<std::mutex[]>;
 		using Clock          = std::chrono::high_resolution_clock;
 		using Timepoint      = Clock::time_point;
-		using TraceLog       = std::pmr::vector<JobTrace>;
 
-		// even when using a monotonic buffer this should be fairly stable (probably?)
+		// uses the PMR composable memory allocation backend
 		JobSystem(
 			std::optional<uint32_t> num_threads     = std::nullopt,                   // by default this will use the hardware concurrency
 			MemoryResource*         memory_resource = std::pmr::new_delete_resource()
@@ -49,12 +50,8 @@ namespace bop::job {
 		static void shutdown() noexcept;
 		static void wait_for_shutdown() noexcept;
 
-		void on_completed(Job* work) noexcept; // called when all children of a job + itself have completed
-		bool child_completed(Job* job) noexcept;
-
 		void worker(uint32_t thread_index) noexcept;
-		void recycle(Job* work) noexcept;
-
+		
 		static Job* get_current_work() noexcept; // yields the thread-local(!) job currently being executed
 		
 		// this should be the mainly used entrypoint for scheduling work - either
@@ -62,7 +59,6 @@ namespace bop::job {
 		template <typename T>
 		uint32_t schedule(
 			T&&                     fn, 
-			Job*                    parent       = m_CurrentJob,
 			std::optional<uint32_t> thread_index = std::nullopt
 		);
 
@@ -72,15 +68,20 @@ namespace bop::job {
 
 	private:
 		Job* create_job();
-
+		void deallocate_job_queue(JobQueue& jq);
+		void deallocate_job_queue(JobQueueNonThreadsafe& jq);
+		
 		template <typename Fn>
 		Job* construct(
 			Fn&&                    fn, 
-			Job*                    parent,
 			std::optional<uint32_t> thread_index
 		) noexcept;
 
 		bool schedule_work(Job* work) noexcept; // returns true if it is scheduled generically and false for a tagged phase
+
+		void on_completed(Job* work) noexcept; // called when all children of a job + itself have completed
+		bool child_completed(Job* job) noexcept;
+		void recycle(Job* work) noexcept;
 
 		void store_trace(
 			const Timepoint& job_start,
@@ -124,7 +125,6 @@ namespace bop {
 	template <typename T>
 	uint32_t schedule(
 		T&&                     work,
-		job::Job*               parent          = current_work(),
 		std::optional<uint32_t> thread_index    = std::nullopt
 	) noexcept;
 

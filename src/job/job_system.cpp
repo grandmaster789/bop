@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <format>
 
 namespace bop::job {
 	JobSystem::JobSystem(
@@ -71,6 +72,9 @@ namespace bop::job {
 	}
 
 	void JobSystem::on_completed(Job* work) noexcept {
+
+
+
 		if (work->m_Parent)
 			child_completed(work->m_Parent); // let the parent know that a child task has completed
 
@@ -80,7 +84,7 @@ namespace bop::job {
 	bool JobSystem::child_completed(Job* job) noexcept {
 		uint32_t remaining = job->m_NumChildren.fetch_sub(1);
 
-		if (remaining <= 1) { // at some point, there's no more child tasks remaining
+		if (remaining == 1) { // at some point, there's no more child tasks remaining
 			on_completed(job);
 			return true; // this job was fully completed
 		}
@@ -165,11 +169,11 @@ namespace bop::job {
 		}
 
 		// we're outside of the execution loop; shutdown was triggered so do cleanup this workers' resources
-		m_GlobalQueues[l_ThreadIndex].clear();
-		m_LocalQueues[l_ThreadIndex].clear();
-		l_RecyclingBin.clear();
-		l_GarbageBin.clear();
-
+		deallocate_job_queue(m_GlobalQueues[l_ThreadIndex]);
+		deallocate_job_queue(m_LocalQueues[l_ThreadIndex]);
+		deallocate_job_queue(l_RecyclingBin);
+		deallocate_job_queue(l_GarbageBin);
+		
 		// the last worker may save the trace report
 		uint32_t active_workers = m_NumThreads.fetch_sub(1);
 		if (active_workers == 1) {
@@ -210,24 +214,44 @@ namespace bop::job {
 
 		if (!result) {
 			// do an actual allocation in that case
-			// NOTE maybe make the allocator a member?
-			//      that would make cleanup more difficult though...
 			JobAllocator allocator(m_MemoryResource);
 
-			//result = allocator.new_object<Job>(m_MemoryResource);
-			result = allocator.allocate_object<Job>(1);
+			result = allocator.allocate(1);
 
 			if (!result) {
 				std::cerr << "Failed to allocate a job\n";
 				std::terminate();
 			}
 
-			allocator.construct(result, m_MemoryResource);
+			allocator.construct(result);
 		}
-		else
-			result->reset();
+		else {
+			result->reset(); // re-use a previously allocated job
+		}
 
 		return result;
+	}
+
+	void JobSystem::deallocate_job_queue(JobQueue& jq) {
+		JobAllocator allocator(m_MemoryResource);
+
+		for (auto* job = jq.pop(); job; job = jq.pop()) {
+			allocator.destroy(job);
+			allocator.deallocate(job, 1);
+		}
+
+		jq.clear();
+	}
+
+	void JobSystem::deallocate_job_queue(JobQueueNonThreadsafe& jq) {
+		JobAllocator allocator(m_MemoryResource);
+
+		for (auto* job = jq.pop(); job; job = jq.pop()) {
+			allocator.destroy(job);
+			allocator.deallocate(job, 1);
+		}
+
+		jq.clear();
 	}
 
 	bool JobSystem::schedule_work(Job* work) noexcept {

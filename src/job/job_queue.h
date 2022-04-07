@@ -6,16 +6,16 @@
 #include "../util/concepts.h"
 
 namespace bop::job {
-	// singly linked list, threadsafe semantics
+	// intrusive singly linked list, non-owning, threadsafe semantics
 	class JobQueue {
 	public:
 		JobQueue() noexcept = default;
 
 		// the atomic flag makes it kind of difficult to put this in a vector...
-		JobQueue             (const JobQueue&) noexcept = delete; 
-		JobQueue& operator = (const JobQueue&) noexcept = delete;
-		JobQueue             (JobQueue&&)      noexcept = delete;
-		JobQueue& operator = (JobQueue&&)      noexcept = delete;
+		JobQueue             (const JobQueue&) = delete; 
+		JobQueue& operator = (const JobQueue&) = delete;
+		JobQueue             (JobQueue&&)      = delete;
+		JobQueue& operator = (JobQueue&&)      = delete;
 		
 		// NOTE push/pop mechanics are non-owning!
 		//      by using pointers we also support derived types
@@ -36,6 +36,7 @@ namespace bop::job {
 	};
 
 	// very similar design, but this one doesn't have locking and thus becomes Rule-of-zero compatible
+	// the non-owning nature actually makes this copyable (you probably shouldn't though)
 	class JobQueueNonThreadsafe {
 	public:
 		// NOTE push/pop mechanics are non-owning!
@@ -43,7 +44,7 @@ namespace bop::job {
 		Job* pop(); // returns nullptr if there's nothing to return
 
 		uint32_t clear(); // returns the number of jobs cleared
-		uint32_t size(); // returns the number of jobs currently in the queue
+		uint32_t size();  // returns the number of jobs currently in the queue
 
 	private:
 		Job* m_Head = nullptr;

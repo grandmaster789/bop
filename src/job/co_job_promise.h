@@ -8,10 +8,7 @@ namespace bop::job {
 		public Job // so this can be scheduled
 	{
 	public:
-		explicit CoJobPromiseBase(
-			std::pmr::memory_resource* resource,
-			std::coroutine_handle<>    coro
-		) noexcept;
+		explicit CoJobPromiseBase(std::coroutine_handle<> coro) noexcept;
 
 	protected:
 		std::coroutine_handle<> m_Handle;

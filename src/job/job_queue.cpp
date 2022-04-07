@@ -4,7 +4,7 @@ namespace bop::job {
 	void JobQueue::push(Job* work) {
 		while (m_Lock.test_and_set(std::memory_order::acquire));
 
-		work->set_next(nullptr);
+		work->m_Next = nullptr; // clear any previous link
 
 		if (!m_Head)
 			m_Head = work;
@@ -13,7 +13,7 @@ namespace bop::job {
 			m_Tail = work;
 		else {
 			// single link push
-			m_Tail->set_next(work);
+			m_Tail->m_Next = work;
 			m_Tail = work;
 		}
 
@@ -29,7 +29,7 @@ namespace bop::job {
 
 		if (result) {
 			// single link pop
-			m_Head = result->get_next();
+			m_Head = result->m_Next;
 			--m_NumEntries;
 
 			if (result == m_Tail)
@@ -42,11 +42,15 @@ namespace bop::job {
 	}
 
 	uint32_t JobQueue::clear() {
+		while (m_Lock.test_and_set(std::memory_order::acquire));
+
 		uint32_t result = m_NumEntries;
 
-		// pop() is threadsafe but not re-entrant so don't acquire the lock here
-		for (auto* job = pop(); job; job = pop())
-			job->get_deallocator()(static_cast<Job*>(job));
+		m_Head       = nullptr;
+		m_Tail       = nullptr;
+		m_NumEntries = 0;
+
+		m_Lock.clear(std::memory_order::release);
 
 		return result;
 	}
@@ -62,7 +66,7 @@ namespace bop::job {
 	}
 
 	void JobQueueNonThreadsafe::push(Job* work) {
-		work->set_next(nullptr);
+		work->m_Next = nullptr;
 
 		if (!m_Head)
 			m_Head = work;
@@ -71,7 +75,7 @@ namespace bop::job {
 			m_Tail = work;
 		else {
 			// single link push
-			m_Tail->set_next(work);
+			m_Tail->m_Next = work;
 			m_Tail = work;
 		}
 
@@ -83,7 +87,7 @@ namespace bop::job {
 
 		if (result) {
 			// single link pop
-			m_Head = result->get_next();
+			m_Head = result->m_Next;
 			--m_NumEntries;
 
 			if (result == m_Tail)
@@ -96,8 +100,9 @@ namespace bop::job {
 	uint32_t JobQueueNonThreadsafe::clear() {
 		uint32_t result = m_NumEntries;
 
-		for (auto* job = pop(); job; job = pop())
-			job->get_deallocator()(static_cast<Job*>(job));
+		m_Head       = nullptr;
+		m_Tail       = nullptr;
+		m_NumEntries = 0;
 
 		return result;
 	}

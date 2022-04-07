@@ -31,7 +31,8 @@ namespace {
 int main() {
 	std::cout << "Starting application\n";
 
-	bop::job::JobSystem js(std::nullopt, &g_GlobalMemoryResource); // creating a local instance will initialize the static class, optionally with some settings
+	//bop::job::JobSystem js(std::nullopt, &g_GlobalMemoryResource); // creating a local instance will initialize the static class, optionally with some settings
+	bop::job::JobSystem js(std::nullopt, &g_GlobalMemoryResource);
 	bop::schedule([] { std::cout << "ping\n"; });
 
 	// dummy tasks to verify that the trace data is correctly displayed by chrome
