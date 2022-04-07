@@ -46,13 +46,10 @@ namespace bop::job {
 		JobSystem             (JobSystem&&) noexcept = default;
 		JobSystem& operator = (JobSystem&&) noexcept = default;
 
-		static bool is_started() noexcept;
 		static void shutdown() noexcept;
 		static void wait_for_shutdown() noexcept;
 
 		void worker(uint32_t thread_index) noexcept;
-		
-		static Job* get_current_work() noexcept; // yields the thread-local(!) job currently being executed
 		
 		// this should be the mainly used entrypoint for scheduling work - either
 		// some kind of invocable or tag is allowed
@@ -120,12 +117,16 @@ namespace bop::job {
 
 // convenience functions that appropriately forward to the job system
 namespace bop {
-	job::Job* current_work();
-
 	template <typename T>
 	uint32_t schedule(
 		T&&                     work,
-		std::optional<uint32_t> thread_index    = std::nullopt
+		std::optional<uint32_t> thread_index = std::nullopt
+	) noexcept;
+
+	template <typename T>
+	uint32_t schedule_parallel(
+		std::pmr::vector<T>&& work,
+		std::optional<uint32_t> thread_index = std::nullopt
 	) noexcept;
 
 	void shutdown();

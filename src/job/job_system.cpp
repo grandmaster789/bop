@@ -56,10 +56,6 @@ namespace bop::job {
 		}		
 	}
 
-	bool JobSystem::is_started() noexcept {
-		return (l_CurrentJob != nullptr);
-	}
-
 	void JobSystem::shutdown() noexcept {
 		m_Shutdown.store(true);
 	}
@@ -72,9 +68,6 @@ namespace bop::job {
 	}
 
 	void JobSystem::on_completed(Job* work) noexcept {
-
-
-
 		if (work->m_Parent)
 			child_completed(work->m_Parent); // let the parent know that a child task has completed
 
@@ -192,10 +185,6 @@ namespace bop::job {
 			l_GarbageBin.push(work); // tag as garbage
 	}
 
-	Job* JobSystem::get_current_work() noexcept {
-		return l_CurrentJob;
-	}
-	
 	uint32_t JobSystem::get_thread_index() const noexcept {
 		return l_ThreadIndex;
 	}
@@ -236,7 +225,7 @@ namespace bop::job {
 		JobAllocator allocator(m_MemoryResource);
 
 		for (auto* job = jq.pop(); job; job = jq.pop()) {
-			allocator.destroy(job);
+			//allocator.destroy(job); // jobs don't have destructors, no need
 			allocator.deallocate(job, 1);
 		}
 
@@ -247,7 +236,7 @@ namespace bop::job {
 		JobAllocator allocator(m_MemoryResource);
 
 		for (auto* job = jq.pop(); job; job = jq.pop()) {
-			allocator.destroy(job);
+			//allocator.destroy(job); // jobs don't have destructors, no need
 			allocator.deallocate(job, 1);
 		}
 
@@ -300,14 +289,14 @@ namespace bop::job {
 
 			nlohmann::json thread_events;
 
-			auto start_time_ms = duration_cast<milliseconds>(trace.m_StartTime - m_ApplicationStart);
-			auto duration_ms   = duration_cast<milliseconds>(trace.m_CurrentTime - trace.m_StartTime);
+			auto start_time_ms = duration_cast<microseconds>(trace.m_StartTime - m_ApplicationStart);
+			auto duration_ms   = duration_cast<microseconds>(trace.m_CurrentTime - trace.m_StartTime);
 
 			thread_events["cat"]  = "cat";                 // categories (comma separated)
 			thread_events["pid"]  = 0;                     // process ID
 			thread_events["tid"]  = trace.m_ThreadIndex;   // executing thread ID
-			thread_events["ts"]   = start_time_ms.count(); // tracing clock timestamp
-			thread_events["dur"]  = duration_ms.count();   // duration (specific to 'complete' events)
+			thread_events["ts"]   = start_time_ms.count(); // tracing clock timestamp in microseconds
+			thread_events["dur"]  = duration_ms.count();   // duration (specific to 'complete' events) in microseconds
 			thread_events["ph"]   = "X";                   // program phase - X is 'complete' event (pp 4)
 			thread_events["name"] = "-";                   // display name; we could possibly put a job type here
 			thread_events["args"] = nlohmann::json();      // may hold any additional information
@@ -322,7 +311,6 @@ namespace bop::job {
 				js["traceEvents"].push_back(make_entry(thread_evt));
 
 		js["displayTimeUnit"] = "ms"; // either "ms" or "ns"
-		
 		// the remaining keys are optional and not needed for our usage
 
 		std::ofstream out("tracelog.json");
@@ -339,10 +327,6 @@ namespace bop::job {
 }
 
 namespace bop {
-	job::Job* current_work() {
-		return job::JobSystem::get_current_work();
-	}
-
 	void shutdown() {
 		job::JobSystem::shutdown();
 	}
