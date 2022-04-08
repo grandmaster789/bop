@@ -1,4 +1,5 @@
 #include "job_system.h"
+#include "job.h"
 
 #include <nlohmann/json.hpp>
 
@@ -49,7 +50,7 @@ namespace bop::job {
 			m_WorkerThreads.push_back(std::thread(
 				&JobSystem::worker, 
 				this, 
-				i
+				i // thread index
 			));
 
 			m_WorkerThreads[i].detach();
@@ -67,18 +68,26 @@ namespace bop::job {
 			std::this_thread::sleep_for(100ms);
 	}
 
-	void JobSystem::on_completed(Job* work) noexcept {
-		if (work->m_Parent)
-			child_completed(work->m_Parent); // let the parent know that a child task has completed
+	bool JobSystem::job_completed(Job* job) noexcept {
+		// if we have a continuation, schedule it
+		if (job->m_Continuation) {
+			if (job->m_Parent) {
+				job->m_Parent->m_NumChildren++;                // indicate that we have one more thing to wait on
+				job->m_Continuation->m_Parent = job->m_Parent; // forward the job parent to the continuation
+			}
 
-		recycle(work);
-	}
+			schedule_work(job->m_Continuation);
+		}
 
-	bool JobSystem::child_completed(Job* job) noexcept {
 		uint32_t remaining = job->m_NumChildren.fetch_sub(1);
 
-		if (remaining == 1) { // at some point, there's no more child tasks remaining
-			on_completed(job);
+		// at some point, there's no more task dependencies remaining
+		if (remaining <= 1) { 
+			if (job->m_Parent)
+				job_completed(job->m_Parent);
+
+			recycle(job);
+			
 			return true; // this job was fully completed
 		}
 
@@ -146,7 +155,7 @@ namespace bop::job {
 					);
 				}
 
-				child_completed(l_CurrentJob);
+				job_completed(l_CurrentJob);
 
 				l_no_work_counter = 0;
 			}

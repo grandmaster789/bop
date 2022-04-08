@@ -11,12 +11,13 @@
 #include <vector>
 #include <optional>
 
-#include "job.h"
 #include "job_queue.h"
 #include "job_trace.h"
 #include "../util/traits.h"
 
 namespace bop::job {
+	class Job;
+
 	/*
 	*	Program wide threadpool for executing Jobs (ie. void()-like invocable things)
 	*   The system owns the actual jobs, and takes care of memory management as needed
@@ -27,6 +28,8 @@ namespace bop::job {
 		static constexpr bool     k_EnableProfiling   = true; // when true, a tracelog.json is generated at shutdown that can be viewed in chrome about://tracing
 		
 	public:
+		friend class Job;
+
 		using MemoryResource = std::pmr::memory_resource;
 		using JobAllocator   = std::pmr::polymorphic_allocator<Job>;
 		using TraceLog       = std::pmr::vector<JobTrace>;
@@ -40,44 +43,43 @@ namespace bop::job {
 			std::optional<uint32_t> num_threads     = std::nullopt,                   // by default this will use the hardware concurrency
 			MemoryResource*         memory_resource = std::pmr::new_delete_resource()
 		) noexcept;
-		
+
 		JobSystem             (const JobSystem&)     = delete;
 		JobSystem& operator = (const JobSystem&)     = delete;
 		JobSystem             (JobSystem&&) noexcept = default;
 		JobSystem& operator = (JobSystem&&) noexcept = default;
 
-		static void shutdown() noexcept;
-		static void wait_for_shutdown() noexcept;
+		static void shutdown() noexcept;          // this can be scheduled as a job
+		static void wait_for_shutdown() noexcept; // blocks until all workers have stopped
 
-		void worker(uint32_t thread_index) noexcept;
+		void worker(uint32_t thread_index) noexcept; // executed on a worker thread
 		
 		// this should be the mainly used entrypoint for scheduling work - either
 		// some kind of invocable or tag is allowed
-		template <typename T>
-		uint32_t schedule(
-			T&&                     fn, 
+		inline Job& schedule(
+			std::invocable auto&&   fn, 
+			Job*                    parent       = nullptr,      // if set, indicates which job waits for this one to complete
 			std::optional<uint32_t> thread_index = std::nullopt
 		);
 
-		uint32_t        get_thread_index() const noexcept;
-		uint32_t        get_num_threads() const noexcept;
-		MemoryResource* get_memory_resource() const noexcept;
+		uint32_t        get_thread_index()    const noexcept; // thread-local
+		uint32_t        get_num_threads()     const noexcept; // same everywhere
+		MemoryResource* get_memory_resource() const noexcept; // exposing this allows coroutines to make use of it to allocate their stackframes
 
 	private:
 		Job* create_job();
 		void deallocate_job_queue(JobQueue& jq);
 		void deallocate_job_queue(JobQueueNonThreadsafe& jq);
 		
-		template <typename Fn>
-		Job* construct(
-			Fn&&                    fn, 
+		inline Job* construct(
+			std::invocable auto&&   fn, 
+			Job*                    parent,
 			std::optional<uint32_t> thread_index
 		) noexcept;
 
 		bool schedule_work(Job* work) noexcept; // returns true if it is scheduled generically and false for a tagged phase
 
-		void on_completed(Job* work) noexcept; // called when all children of a job + itself have completed
-		bool child_completed(Job* job) noexcept;
+		bool job_completed(Job* job) noexcept;
 		void recycle(Job* work) noexcept;
 
 		void store_trace(
@@ -117,17 +119,11 @@ namespace bop::job {
 
 // convenience functions that appropriately forward to the job system
 namespace bop {
-	template <typename T>
-	uint32_t schedule(
-		T&&                     work,
+	inline job::Job& schedule(
+		std::invocable auto&&   work,
+		job::Job*               parent       = nullptr, // indicates which job is waiting for this one
 		std::optional<uint32_t> thread_index = std::nullopt
-	) noexcept;
-
-	template <typename T>
-	uint32_t schedule_parallel(
-		std::pmr::vector<T>&& work,
-		std::optional<uint32_t> thread_index = std::nullopt
-	) noexcept;
+	) noexcept; // returns the number of jobs scheduled
 
 	void shutdown();
 	void wait_for_shutdown();

@@ -9,8 +9,6 @@
 namespace bop::job {
 	class Job {
 	public:
-		using void_function_ptr = void(*)();
-
 		friend class JobSystem;
 		friend class JobQueue;
 		friend class JobQueueNonThreadsafe;
@@ -23,14 +21,20 @@ namespace bop::job {
 
 		void reset() noexcept;
 
+		inline Job& then(
+			std::invocable auto&&   work,
+			std::optional<uint32_t> thread_index = std::nullopt
+		) noexcept;
+
 	protected:
-		std::atomic<int>        m_NumChildren    = 1;
+		std::atomic<uint32_t>   m_NumChildren    = 1;
 		Job*                    m_Parent         = nullptr;
-		//Job*                    m_Continuation   = nullptr;
-		Job*                    m_Next           = nullptr; // singly linked
+		Job*                    m_Continuation   = nullptr;
+		Job*                    m_Next           = nullptr; // intrusive singly linked
 		std::optional<uint32_t> m_ThreadIndex    = std::nullopt;
 
 		std::function<void()>   m_Work;
-		void_function_ptr       m_WorkFnPtr = nullptr;
 	};
 }
+
+#include "job.inl"

@@ -2,10 +2,12 @@
 
 #include <atomic>
 #include <cstdint>
-#include "job.h"
+
 #include "../util/concepts.h"
 
 namespace bop::job {
+	class Job;
+
 	// intrusive singly linked list, non-owning, threadsafe semantics
 	class JobQueue {
 	public:
@@ -35,11 +37,13 @@ namespace bop::job {
 		uint32_t m_NumEntries = 0;
 	};
 
-	// very similar design, but this one doesn't have locking and thus becomes Rule-of-zero compatible
-	// the non-owning nature actually makes this copyable (you probably shouldn't though)
+	// very similar design, but this one doesn't have locking
+	// the non-owning nature actually makes this copyable 
+	// (you probably shouldn't though)
 	class JobQueueNonThreadsafe {
 	public:
-		// NOTE push/pop mechanics are non-owning!
+		JobQueueNonThreadsafe() = default;
+
 		void push(Job* work);
 		Job* pop(); // returns nullptr if there's nothing to return
 

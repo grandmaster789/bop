@@ -54,7 +54,13 @@ int main() {
 		std::this_thread::sleep_for(5s);
 	}
 
-	bop::schedule([] { bop::shutdown(); });
+	bop::schedule([] { std::cout << "Testing\n"; })
+		.then([] { std::cout << "3\n"; })
+		.then([] { std::cout << "2\n"; })
+		.then([] { std::cout << "1\n"; })
+		.then([] { bop::shutdown(); });
+
+	//bop::schedule([] { bop::shutdown(); });
 	bop::wait_for_shutdown();
 
 	std::cout << "Completed application\n";
