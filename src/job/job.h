@@ -12,7 +12,6 @@ namespace bop::job {
 		friend class JobSystem;
 		friend class JobQueue;
 		friend class JobQueueNonThreadsafe;
-		friend class JobDeallocator; // because this needs to access the memory resource
 
 		// (pmr allocation/deallocation is done in JobSystem)
 		Job() = default;
@@ -20,7 +19,9 @@ namespace bop::job {
 		void operator()() noexcept;
 
 		void reset() noexcept;
+		void wait() noexcept; // block until the job was executed. Please only use this for unit tests
 
+		// monoidal continuation
 		inline Job& then(
 			std::invocable auto&&   work,
 			std::optional<uint32_t> thread_index = std::nullopt

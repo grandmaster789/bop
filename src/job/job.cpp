@@ -2,6 +2,8 @@
 
 #include <iostream>
 #include <format>
+#include <thread>
+#include <chrono>
 
 namespace bop::job {
 	void Job::operator()() noexcept {
@@ -21,5 +23,10 @@ namespace bop::job {
 		m_Next         = nullptr;
 		m_Parent       = nullptr;
 		m_Continuation = nullptr;
+	}
+
+	void Job::wait() noexcept {
+		while (m_NumChildren != 0)
+			std::this_thread::yield();
 	}
 }
