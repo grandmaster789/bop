@@ -3,10 +3,11 @@
 #include <coroutine>
 
 namespace bop::job {
-	template <typename t_Result = void>
-	class CoJob {
-	public:
+	struct CoJobPromise;
 
-	private:
+	struct CoJob:
+		std::coroutine_handle<CoJobPromise>
+	{
+		using promise_type = struct CoJobPromise;
 	};
 }

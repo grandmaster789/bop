@@ -4,13 +4,13 @@
 #include <coroutine>
 
 namespace bop::job {
-	class CoJobPromiseBase :
-		public Job // so this can be scheduled
-	{
-	public:
-		explicit CoJobPromiseBase(std::coroutine_handle<> coro) noexcept;
+	struct CoJob;
 
-	protected:
-		std::coroutine_handle<> m_Handle;
+	struct CoJobPromise {
+		CoJob get_return_object();
+		std::suspend_always initial_suspend() noexcept;
+		std::suspend_never final_suspend() noexcept;
+		void return_void();
+		void unhandled_exception();
 	};
 }
