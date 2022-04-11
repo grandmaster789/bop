@@ -54,7 +54,7 @@ int main() {
 		std::this_thread::sleep_for(5s);
 	}
 
-	bop::schedule([] { std::cout << "Testing\n"; })
+	bop::schedule([] { std::cout << "Testing continuations\n"; })
 		.then([] { std::cout << "3\n"; })
 		.then([] { std::cout << "2\n"; })
 		.then([] { std::cout << "1\n"; })

@@ -69,16 +69,6 @@ namespace bop::job {
 	}
 
 	bool JobSystem::job_completed(Job* job) noexcept {
-		// if we have a continuation, schedule it
-		if (job->m_Continuation) {
-			if (job->m_Parent) {
-				job->m_Parent->m_NumChildren++;                // indicate that we have one more thing to wait on
-				job->m_Continuation->m_Parent = job->m_Parent; // forward the job parent to the continuation
-			}
-
-			schedule_work(job->m_Continuation);
-		}
-
 		uint32_t remaining = job->m_NumChildren.fetch_sub(1);
 
 		// at some point, there's no more task dependencies remaining
@@ -118,7 +108,7 @@ namespace bop::job {
 
 		std::unique_lock lock(m_Mutexes[l_ThreadIndex]);
 
-		// main worker loop -- do work while we're shutting down
+		// main execution loop -- do work until we're shutting down
 		while (!m_Shutdown) {
 			// prioritize local queue over the global one (should have less contention)
 			l_CurrentJob = m_LocalQueues[l_ThreadIndex].pop();
@@ -135,8 +125,9 @@ namespace bop::job {
 				l_CurrentJob = m_GlobalQueues[steal_from].pop();
 			}
 
-			// if we have a job, execute it
-			if (l_CurrentJob) {
+			// if we have a job, execute it; while there are continuations
+			// available, perform those as well (avoiding context switches)
+			while (l_CurrentJob) {
 				Timepoint job_start;
 
 				if constexpr (k_EnableProfiling) {
@@ -155,12 +146,27 @@ namespace bop::job {
 					);
 				}
 
+				l_no_work_counter = 0;
+				
+				// do notifications, recycling and/or 
+				// see if we have a continuation and if so, traverse down the chain
+				Job* continuation = l_CurrentJob->m_Continuation;
+
+				if (continuation) {
+					// propagate the 'parent' job to the continuation
+					if (l_CurrentJob->m_Parent) {
+						l_CurrentJob->m_Parent->m_NumChildren++;
+						continuation->m_Parent = l_CurrentJob->m_Parent;
+					}
+				}
+
 				job_completed(l_CurrentJob);
 
-				l_no_work_counter = 0;
+				l_CurrentJob = continuation;
 			}
+			
 			// if we still don't have work for a long time we may try reclaiming some memory
-			else if (++l_no_work_counter > k_LoopsUntilGC) [[unlikely]] {
+			if (++l_no_work_counter > k_LoopsUntilGC) [[unlikely]] {
 				using namespace std::chrono_literals;
 
 				l_GarbageBin.clear();
@@ -168,7 +174,7 @@ namespace bop::job {
 
 				l_no_work_counter /= 2; // it's not like this worker is hot, so don't reset the counter entirely
 			}
-		}
+		} // end of execution loop
 
 		// we're outside of the execution loop; shutdown was triggered so do cleanup this workers' resources
 		deallocate_job_queue(m_GlobalQueues[l_ThreadIndex]);
