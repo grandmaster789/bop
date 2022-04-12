@@ -77,6 +77,26 @@ bop::job::Generator<int> five() {
 	}
 }
 
+struct Sleeper {
+	constexpr bool await_ready() const noexcept { return false; }
+
+	void await_suspend(std::coroutine_handle<> h) const {
+		auto t = std::jthread([h] {
+			using namespace std::chrono_literals;
+			std::this_thread::sleep_for(1s);
+			h.resume();
+		});
+	}
+
+	constexpr void await_resume() const noexcept {}
+};
+
+Task sleepy() {
+	std::cout << "Before\n";
+	co_await Sleeper();
+	std::cout << "After\n";
+}
+
 int main() {
 	std::cout << "Starting application\n";
 
@@ -94,6 +114,8 @@ int main() {
 
 		std::cout << "\n";
 	}
+
+	sleepy().resume();
 
 	// creating a local instance will initialize the static class, optionally with some settings
 	/*
