@@ -5,7 +5,7 @@ find_package(nlohmann_json CONFIG REQUIRED)
 
 add_executable(${BOP_MAIN} 
 	"main.cpp"
-)
+ "job/co_generator.h")
 
 add_library(${BOP_LIB}
 	"job/job.h"
@@ -23,7 +23,7 @@ add_library(${BOP_LIB}
 	"util/curry.h" 
 	"util/concepts.h"	
 	"util/traits.h"
- )
+  "job/co_generator.h")
 
  target_link_libraries(${BOP_MAIN} PRIVATE ${BOP_LIB})
 

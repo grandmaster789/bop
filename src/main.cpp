@@ -13,6 +13,7 @@
 
 #include "job/co_job.h"
 #include "job/co_job_promise.h"
+#include "job/co_generator.h"
 
 namespace {
 	// https://en.cppreference.com/w/cpp/memory/synchronized_pool_resource
@@ -28,115 +29,71 @@ namespace {
 	);
 }
 
-struct Promise {
-	std::coroutine_handle<> m_Handle;
+class Task { 
+public:
+	struct promise_type {
+		using Handle = std::coroutine_handle<promise_type>;
 
-	explicit Promise(std::coroutine_handle<> handle) noexcept:
+		std::suspend_always initial_suspend() { return {}; }
+		std::suspend_never final_suspend() noexcept { return {}; }
+		void unhandled_exception() {}
+		void return_void() {}
+
+		Task get_return_object() {
+			return Task(Handle::from_promise(*this));
+		}
+	};
+
+	explicit Task(promise_type::Handle handle) :
 		m_Handle(handle)
 	{
 	}
 
-	void unhandled_exception() noexcept {
-		std::terminate();
-	}
+	Task             (const Task&) = delete;
+	Task& operator = (const Task&) = delete;
+	Task             (Task&& t) noexcept = default;
+	Task& operator = (Task&& t) noexcept = default;
 
-	std::suspend_always initial_suspend() noexcept {
-		return {};
-	}
+	void destroy() { m_Handle.destroy(); }
+	void resume() { m_Handle.resume(); }
 
-	bool resume() noexcept {
-		if (m_Handle && !m_Handle.done())
-			m_Handle.resume();
-
-		return true;
-	}
-
-	// allocator overloads in order to use pmr for the coroutine stackframe allocations
-	// this seems like suspicious code to me
-	template <typename... Args>
-	void* operator new(
-		std::size_t                sz,
-		std::allocator_arg_t,
-		std::pmr::memory_resource* mr,
-		Args&&...                  args
-	) noexcept {
-		auto allocatorOffset = 
-			(sz + alignof(std::pmr::memory_resource*) - 1) & 
-			~(alignof(std::pmr::memory_resource*) - 1);
-
-		char* ptr = (char*)mr->allocate(allocatorOffset + sizeof(mr));
-
-		if (ptr == nullptr)
-			std::terminate();
-		
-		*reinterpret_cast<std::pmr::memory_resource**>(ptr + allocatorOffset) = mr;
-
-		return ptr;
-	}
-
-	template <typename T, typename... Args>
-	void* operator new(
-		std::size_t                sz,
-		T,
-		std::allocator_arg_t,
-		std::pmr::memory_resource* mr,
-		Args&&...                  args
-	) noexcept {
-		return operator new(sz, std::allocator_arg, mr, args...);
-	}
-
-	template<typename Class, typename... Args>
-	void* operator new(
-		std::size_t      sz,
-		Class, Args&&... args
-	) noexcept {
-		return operator new(
-			sz, 
-			std::allocator_arg,
-			std::pmr::new_delete_resource(),
-			args...
-		);
-	}
-
-	template<typename... Args>
-	void* operator new(
-		std::size_t sz,
-		Args&&...   args
-	) noexcept {
-		return operator new(
-			sz, 
-			std::allocator_arg,
-			std::pmr::new_delete_resource(),
-			args...
-		);
-	}
-
-	void operator delete(
-		void*       ptr,
-		std::size_t sz
-	) noexcept {
-		auto allocatorOffset = 
-			(sz + alignof(std::pmr::memory_resource*) - 1) & 
-			~(alignof(std::pmr::memory_resource*) - 1
-		);
-		
-		auto allocator = (std::pmr::memory_resource**)((char*)(ptr)+allocatorOffset);
-		
-		(*allocator)->deallocate(
-			ptr, 
-			allocatorOffset + sizeof(std::pmr::memory_resource*)
-		);
-	}
+private:
+	promise_type::Handle m_Handle;
 };
 
-void do_your_thing() {
+Task do_your_thing() {
+	std::cout << "ping\n";
+	co_return;
+}
 
+bop::job::Generator<int> five() {
+	int value = 0;
+
+	while (true) {
+		co_yield value;
+
+		if (++value > 5)
+			value = 0;
+	}
 }
 
 int main() {
 	std::cout << "Starting application\n";
 
-	do_your_thing();
+	Task t = do_your_thing();
+	t.resume();
+
+	{
+		auto g = five();
+		int x = 0;
+
+		while (x < 10) {
+			x += g.get_next();
+			std::cout << x << " ";
+		}
+
+		std::cout << "\n";
+	}
 
 	// creating a local instance will initialize the static class, optionally with some settings
 	/*
