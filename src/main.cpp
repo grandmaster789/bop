@@ -49,6 +49,10 @@ public:
 	{
 	}
 
+	~Task() {
+		// final handle should destroy the coroutine (sounds like refcounted semantics)
+	}
+
 	Task             (const Task&) = delete;
 	Task& operator = (const Task&) = delete;
 	Task             (Task&& t) noexcept = default;
@@ -66,17 +70,6 @@ Task do_your_thing() {
 	co_return;
 }
 
-bop::job::Generator<int> five() {
-	int value = 0;
-
-	while (true) {
-		co_yield value;
-
-		if (++value > 5)
-			value = 0;
-	}
-}
-
 struct Sleeper {
 	constexpr bool await_ready() const noexcept { return false; }
 
@@ -84,7 +77,7 @@ struct Sleeper {
 		auto t = std::jthread([h] {
 			using namespace std::chrono_literals;
 			std::this_thread::sleep_for(1s);
-			h.resume();
+			h.resume(); // resumes on another thread
 		});
 	}
 
@@ -92,8 +85,9 @@ struct Sleeper {
 };
 
 Task sleepy() {
+	Sleeper s;
 	std::cout << "Before\n";
-	co_await Sleeper();
+	co_await s;
 	std::cout << "After\n";
 }
 
@@ -104,13 +98,8 @@ int main() {
 	t.resume();
 
 	{
-		auto g = five();
-		int x = 0;
-
-		while (x < 10) {
-			x += g.get_next();
-			std::cout << x << " ";
-		}
+		for (auto i : bop::job::generator_range(5, 11))
+			std::cout << i << " ";
 
 		std::cout << "\n";
 	}
