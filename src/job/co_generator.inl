@@ -104,7 +104,14 @@ namespace bop::job {
 
 	/***** generator functions *****/
 	template <std::integral I>
-	Generator<I> generator_range(I first, I last, I step) {
+	Generator<I> iota(I up_to) {
+		for (I value = 0; value < up_to; ++value)
+			co_yield value;
+	}
+
+
+	template <std::integral I>
+	Generator<I> range(I first, I last, I step) {
 		while (first < last) {
 			co_yield first;
 			first = first + step;

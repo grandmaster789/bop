@@ -2,7 +2,6 @@
 #include <memory>
 
 #include "../../src/job/job_system.h"
-#include "../../src/job/co_generator.h"
 
 #include <catch2/catch.hpp>
 
@@ -27,21 +26,8 @@ namespace testing {
         
         return g_Total;
     }
-
-    uint32_t test_generator_range_sum() {
-        uint32_t sum = 0;
-
-        for (auto x : bop::job::generator_range<uint32_t>(5, 10))
-            sum += x;
-
-        return sum;
-    }
 }
 
-TEST_CASE("test_scheduler", "[single_job]") {
+TEST_CASE("test_scheduler[single_job]") {
     REQUIRE(testing::test_single_job() == 2222);
-}
-
-TEST_CASE("test_generator", "[integral_range]") {
-    REQUIRE(testing::test_generator_range_sum() == (5 + 6 + 7 + 8 + 9)); // == 35
 }

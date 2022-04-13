@@ -5,7 +5,7 @@
 
 namespace bop::job {
 	// single-threaded wrapper around an algorithm that co_yields a T 
-	// (see generator_range for an algorithm sample, unit test for usage)
+	// (see iota for an algorithm sample, unit test for usage)
 	template <std::movable T>
 	class Generator {
 	public:
@@ -57,7 +57,10 @@ namespace bop::job {
 	};
 
 	template <std::integral I>
-	Generator<I> generator_range(I first, I last, I step = 1);
+	Generator<I> iota(I up_to);
+
+	template <std::integral I>
+	Generator<I> range(I first, I last, I step = 1);
 }
 
 #include "co_generator.inl"

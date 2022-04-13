@@ -98,7 +98,7 @@ int main() {
 	t.resume();
 
 	{
-		for (auto i : bop::job::generator_range(5, 11))
+		for (auto i : bop::job::range(5, 11))
 			std::cout << i << " ";
 
 		std::cout << "\n";
