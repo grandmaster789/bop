@@ -6,6 +6,7 @@ namespace bop::util {
 	// expressing std type traits as concepts
 	// seems clear that we've got some combination explosion going on here -_-
 	// (full list from https://en.cppreference.com/w/cpp/meta#Type_traits)
+	// some coroutine-related traits and concepts are located in traits.h
 
 	// base types
 	template <typename T> concept c_void                = std::is_void_v<T>;
@@ -93,7 +94,4 @@ namespace bop::util {
 	template <typename t_Result, typename t_Fn, typename...t_Args> concept c_invocable_r         = std::is_invocable_r_v<t_Result, t_Fn, t_Args...>;
 	template <                   typename t_Fn, typename...t_Args> concept c_nothrow_invocable   = std::is_nothrow_invocable_v<t_Fn, t_Args...>;
 	template <typename t_Result, typename t_Fn, typename...t_Args> concept c_nothrow_invocable_r = std::is_nothrow_invocable_r_v<t_Result, t_Fn, t_Args...>;
-
-	// coroutine-related
-
 } 

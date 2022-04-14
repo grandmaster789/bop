@@ -6,6 +6,8 @@
 
 #include "util/traits.h"
 #include "util/concepts.h"
+#include "util/cacheline.h"
+#include "util/spinlock.h"
 
 #include "job/job.h"
 #include "job/job_queue.h"
@@ -106,8 +108,10 @@ int main() {
 
 	sleepy().resume();
 
-	std::cout << std::boolalpha << bop::util::is_awaiter<Sleeper>::value << "\n";
-	std::cout << std::boolalpha << bop::util::is_awaiter<Task>::value << "\n";
+	std::cout << std::boolalpha << bop::util::is_awaiter_v<Sleeper> << "\n";
+	std::cout << std::boolalpha << bop::util::is_awaiter_v<Task> << "\n";
+
+	std::cout << "Cacheline: " << bop::util::hardware_constructive_interference_size << "\n";
 
 	// creating a local instance will initialize the static class, optionally with some settings
 	/*
