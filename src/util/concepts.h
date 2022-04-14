@@ -85,7 +85,7 @@ namespace bop::util {
 	// type relationships
 	template <typename T, typename U> concept c_same                = std::is_same_v<T, U>;
 	template <typename T, typename U> concept c_base_of             = std::is_base_of_v<T, U>; // T is base of U (U is the derived class)
-	template <typename T, typename U> concept c_convertible         = std::is_convertible_v<T, U>;
+	template <typename T, typename U> concept c_convertible         = std::is_convertible_v<T, U>; // std library provides std::convertible_to
 	template <typename T, typename U> concept c_nothrow_convertible = std::is_nothrow_convertible_v<T, U>;
 
 	// invocables
@@ -93,4 +93,7 @@ namespace bop::util {
 	template <typename t_Result, typename t_Fn, typename...t_Args> concept c_invocable_r         = std::is_invocable_r_v<t_Result, t_Fn, t_Args...>;
 	template <                   typename t_Fn, typename...t_Args> concept c_nothrow_invocable   = std::is_nothrow_invocable_v<t_Fn, t_Args...>;
 	template <typename t_Result, typename t_Fn, typename...t_Args> concept c_nothrow_invocable_r = std::is_nothrow_invocable_r_v<t_Result, t_Fn, t_Args...>;
+
+	// coroutine-related
+
 } 

@@ -21,13 +21,30 @@ namespace testing {
     uint32_t test_single_job() {
         g_Total = 1111;
 
-        auto& job = bop::schedule([&] { g_Total = 2222; });
+        auto& job = bop::schedule(
+            [&] { g_Total = 2222; }
+        );
+
         job.wait();
         
+        return g_Total;
+    }
+
+    uint32_t test_basic_continuation() {
+        g_Total = 1111;
+
+        auto& job = bop::schedule(
+                  [&] { g_Total = 2222; })
+            .then([&] { g_Total = 3333; })
+            .then([&] { g_Total = 4444; });
+
+        job.wait();
+
         return g_Total;
     }
 }
 
 TEST_CASE("test_scheduler[single_job]") {
     REQUIRE(testing::test_single_job() == 2222);
+    REQUIRE(testing::test_basic_continuation() == 4444);
 }

@@ -106,6 +106,9 @@ int main() {
 
 	sleepy().resume();
 
+	std::cout << std::boolalpha << bop::util::is_awaiter<Sleeper>::value << "\n";
+	std::cout << std::boolalpha << bop::util::is_awaiter<Task>::value << "\n";
+
 	// creating a local instance will initialize the static class, optionally with some settings
 	/*
 	bop::job::JobSystem js(std::nullopt, &g_GlobalMemoryResource);
