@@ -1,5 +1,7 @@
 #include <iostream>
 #include <memory>
+#include <array>
+#include <algorithm>
 
 #include "../../src/job/co_generator.h"
 

@@ -8,6 +8,7 @@
 #include "util/concepts.h"
 #include "util/cacheline.h"
 #include "util/spinlock.h"
+#include "util/manual_lifetime.h"
 
 #include "job/job.h"
 #include "job/job_queue.h"
@@ -93,6 +94,15 @@ Task sleepy() {
 	std::cout << "After\n";
 }
 
+bop::job::CoJob<int> pong() {
+	co_return 123;
+}
+
+bop::job::CoJob<int> ping() {
+	auto x = co_await pong();
+	co_return x;
+}
+
 int main() {
 	std::cout << "Starting application\n";
 
@@ -106,7 +116,9 @@ int main() {
 		std::cout << "\n";
 	}
 
-	sleepy().resume();
+	//sleepy().resume();
+
+	ping();
 
 	std::cout << std::boolalpha << bop::util::is_awaiter_v<Sleeper> << "\n";
 	std::cout << std::boolalpha << bop::util::is_awaiter_v<Task> << "\n";
