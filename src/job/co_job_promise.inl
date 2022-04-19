@@ -49,11 +49,12 @@ namespace bop::job {
 
 	template <std::movable T>
 	T CoJobPromise<T>::get() {
-		std::visit(util::Overloaded{
-			[](auto) { throw std::runtime_error("No value is set"); },
-			[](std::exception_ptr x) { std::rethrow_exception(x); },
-			[](T value) { return value; }
-		}, m_State);
+		if (auto* x = std::get_if<std::exception_ptr>(&m_State))
+			std::rethrow_exception(*x);
+		else if (std::holds_alternative<std::monostate>(m_State))
+			throw std::runtime_error("No value is set");
+		else
+			return std::get<T>(m_State);
 	}
 
 	// void specialization
@@ -92,9 +93,9 @@ namespace bop::job {
 	}
 
 	inline void CoJobPromise<void>::get() {
-		std::visit(util::Overloaded{
-			[](std::exception_ptr x) { std::rethrow_exception(x); },
-			[](auto) {}
-		}, m_State);
+		if (auto* x = std::get_if<std::exception_ptr>(&m_State))
+			std::rethrow_exception(*x);
+		else if (std::holds_alternative<std::monostate>(m_State))
+			throw std::runtime_error("No value is set");		
 	}
 }

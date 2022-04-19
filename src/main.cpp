@@ -74,17 +74,26 @@ Task do_your_thing() {
 }
 
 struct Sleeper {
-	constexpr bool await_ready() const noexcept { return false; }
+	bool await_ready() const noexcept { 
+		std::cout << "ready?\n";
+		return false; 
+	}
 
 	void await_suspend(std::coroutine_handle<> h) const {
+		std::cout << "Suspended\n";
+
 		auto t = std::jthread([h] {
 			using namespace std::chrono_literals;
 			std::this_thread::sleep_for(1s);
-			h.resume(); // resumes on another thread
+			std::cout << "__resume()\n";
+			h.resume();
+			std::cout << "**resume()\n";
 		});
 	}
 
-	constexpr void await_resume() const noexcept {}
+	void await_resume() const noexcept {
+		std::cout << "Resumed\n";
+	}
 };
 
 Task sleepy() {
@@ -116,9 +125,9 @@ int main() {
 		std::cout << "\n";
 	}
 
-	//sleepy().resume();
+	sleepy().resume();
 
-	ping();
+	//ping();
 
 	std::cout << std::boolalpha << bop::util::is_awaiter_v<Sleeper> << "\n";
 	std::cout << std::boolalpha << bop::util::is_awaiter_v<Task> << "\n";

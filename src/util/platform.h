@@ -25,5 +25,5 @@ namespace bop {
 
 	static constexpr e_Platform k_Platform = e_Platform::current;
 
-	// maybe add iostream?
+	// maybe add iostream formatting?
 }
