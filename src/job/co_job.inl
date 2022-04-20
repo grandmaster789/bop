@@ -3,43 +3,98 @@
 #include "co_job.h"
 
 namespace bop::job {
+	// CoJob<T>
 	template <typename T>
-	CoJob<T>::CoJob(promise_type* promise):
-		m_Coroutine(Handle::from_promise(*promise))
+	CoJob<T>::CoJob(promise_type* pm) noexcept:
+		m_Handle(Handle::from_promise(*pm))
 	{
 	}
 
 	template <typename T>
 	CoJob<T>::~CoJob() {
-		if (m_Coroutine)
-			m_Coroutine.destroy();
+		if (m_Handle)
+			m_Handle.destroy();
 	}
 
 	template <typename T>
-	auto CoJob<T>::operator co_await() && noexcept {
-		struct Awaiter {
-			Handle m_Coro;
+	bool CoJob<T>::await_ready() noexcept {
+		return false;
+	}
 
-			explicit Awaiter(Handle coro):
-				m_Coro(coro)
-			{
-			}
+	template <typename T>
+	void CoJob<T>::await_suspend(Handle) noexcept {
+	}
 
-			bool await_ready() {
-				return false;
-			}
+	template <typename T>
+	T CoJob<T>::await_resume() {
+		while (m_Handle && !m_Handle.done())
+			m_Handle.resume();
 
-			auto await_suspend(std::coroutine_handle<> handle) noexcept {
-				m_Coro.promise().m_Continuation = handle;
-				return m_Coro;
-			}
+		auto& pm = m_Handle.promise();
 
-			T await_resume() {
-				return m_Coro.promise().get();
-			}
-		};
+		if (auto* exp = std::get_if<std::exception_ptr>(&pm.m_Payload))
+			std::rethrow_exception(*exp);
+		
+		if (pm.m_Payload.index() == 0) [[unlikely]]
+			throw std::runtime_error("Job promise is in empty state");
+		
+		return std::get<T>(pm.m_Payload);
+	}
 
+	template <typename T>
+	T CoJob<T>::get() {
+		return await_resume();
+	}
 
-		return Awaiter(m_Coroutine);
+	// CoJob<void>
+	inline CoJob<void>::CoJob(promise_type* pm) noexcept:
+		m_Handle(Handle::from_promise(*pm))
+	{
+	}
+
+	inline CoJob<void>::~CoJob() {
+		if (m_Handle)
+			m_Handle.destroy();
+	}
+
+	inline bool CoJob<void>::await_ready() noexcept {
+		return false;
+	}
+
+	inline void CoJob<void>::await_suspend(Handle) noexcept {
+	}
+
+	inline void CoJob<void>::await_resume() {
+		while (m_Handle && !m_Handle.done())
+			m_Handle.resume();
+
+		auto& pm = m_Handle.promise();
+
+		if (pm.m_Payload)
+			std::rethrow_exception(*pm.m_Payload);
+	}
+
+	inline void CoJob<void>::get() {
+		await_resume();
+	}
+
+	// CoJobPromise<void>
+	inline CoJob<void> CoJobPromise<void>::get_return_object() {
+		return CoJob<void>(this);
+	}
+
+	inline void CoJobPromise<void>::return_void() {
+	}
+
+	inline void CoJobPromise<void>::unhandled_exception() {
+		m_Payload = std::current_exception();
+	}
+
+	inline auto CoJobPromise<void>::initial_suspend() {
+		return std::suspend_always();
+	}
+
+	inline auto CoJobPromise<void>::final_suspend() noexcept {
+		return std::suspend_always();
 	}
 }

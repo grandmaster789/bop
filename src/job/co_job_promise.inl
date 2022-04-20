@@ -1,101 +1,32 @@
 #pragma once
 
 #include "co_job_promise.h"
-#include "co_job.h"
-#include "../util/overloaded.h"
-
-#include <stdexcept>
+#include <exception>
 
 namespace bop::job {
-	template <std::movable T>
-	CoJob<T> CoJobPromise<T>::get_return_object() noexcept {
+	// CoJobPromise<T>
+	template <typename T>
+	CoJob<T> CoJobPromise<T>::get_return_object() {
 		return CoJob<T>(this);
 	}
 
-	template <std::movable T>
-	std::suspend_always CoJobPromise<T>::initial_suspend() {
-		return {};
+	template <typename T>
+	void CoJobPromise<T>::return_value(T value) {
+		m_Payload = std::move(value);
 	}
 
-	template <std::movable T>
+	template <typename T>
+	void CoJobPromise<T>::unhandled_exception() {
+		m_Payload = std::current_exception();
+	}
+
+	template <typename T>
+	auto CoJobPromise<T>::initial_suspend() {
+		return std::suspend_always();
+	}
+
+	template <typename T>
 	auto CoJobPromise<T>::final_suspend() noexcept {
-		struct Awaiter {
-			bool await_ready() noexcept {
-				return false;
-			}
-
-			auto await_suspend(std::coroutine_handle<CoJobPromise> handle) noexcept {
-				return handle.promise().m_Continuation;
-			}
-
-			void await_resume() noexcept {
-			}
-		};
-
-		return Awaiter();
-	}
-
-	template <std::movable T>
-	template <typename U>
-	requires std::convertible_to<U, T>
-	void CoJobPromise<T>::return_value(U&& set_result) {
-		m_State = std::forward<U>(set_result);
-	}
-
-	template <std::movable T>
-	void CoJobPromise<T>::unhandled_exception() noexcept {
-		m_State = std::current_exception();
-	}
-
-	template <std::movable T>
-	T CoJobPromise<T>::get() {
-		if (auto* x = std::get_if<std::exception_ptr>(&m_State))
-			std::rethrow_exception(*x);
-		else if (std::holds_alternative<std::monostate>(m_State))
-			throw std::runtime_error("No value is set");
-		else
-			return std::get<T>(m_State);
-	}
-
-	// void specialization
-	inline CoJob<void> CoJobPromise<void>::get_return_object() noexcept {
-		return CoJob<void>(this);
-	}
-
-	inline std::suspend_always CoJobPromise<void>::initial_suspend() {
-		return {};
-	}
-
-	inline auto CoJobPromise<void>::final_suspend() noexcept {
-		struct Awaiter {
-			bool await_ready() noexcept {
-				return false;
-			}
-
-			auto await_suspend(std::coroutine_handle<CoJobPromise> handle) noexcept {
-				return handle.promise().m_Continuation;
-			}
-
-			void await_resume() {
-			}
-		};
-
-		return Awaiter();
-	}
-
-	inline void CoJobPromise<void>::return_void() noexcept {
-		// so technically we need a 'value' state here, but the promise is of void type...
-		m_State = VoidValue();
-	}
-
-	inline void CoJobPromise<void>::unhandled_exception() noexcept {
-		m_State = std::current_exception();
-	}
-
-	inline void CoJobPromise<void>::get() {
-		if (auto* x = std::get_if<std::exception_ptr>(&m_State))
-			std::rethrow_exception(*x);
-		else if (std::holds_alternative<std::monostate>(m_State))
-			throw std::runtime_error("No value is set");		
+		return std::suspend_always();
 	}
 }

@@ -5,7 +5,7 @@ find_package(nlohmann_json CONFIG REQUIRED)
 
 add_executable(${BOP_MAIN} 
 	"main.cpp"
- "util/cacheline.h" "util/spinlock.h" "util/spinlock.cpp" "util/manual_lifetime.h" "util/overloaded.h")
+  "job/co_job_promise.h")
 
 add_library(${BOP_LIB}
 	"job/job.h"
@@ -18,14 +18,19 @@ add_library(${BOP_LIB}
 	"job/job_trace.cpp" 
 	"job/co_generator.h" 
 	"job/co_job.h" 
-	"job/co_job_promise.h" 
-	"job/co_job_promise.cpp"
+	 
+	
 	
 	"util/cacheline.h"
 	"util/curry.h" 
 	"util/concepts.h"	
 	"util/traits.h"
- "util/spinlock.h" "util/spinlock.cpp" "util/manual_lifetime.h" "util/overloaded.h")
+	"util/spinlock.h" 
+	"util/spinlock.cpp" 
+	"util/manual_lifetime.h" 
+	"util/platform.h"
+	"util/overloaded.h"
+ "job/co_job_promise.h")
 
  target_link_libraries(${BOP_MAIN} PRIVATE ${BOP_LIB})
 

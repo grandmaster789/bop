@@ -18,6 +18,9 @@
 #include "job/co_job_promise.h"
 #include "job/co_generator.h"
 
+#include <mutex>
+#include <variant>
+
 namespace {
 	// https://en.cppreference.com/w/cpp/memory/synchronized_pool_resource
 	// https://en.cppreference.com/w/cpp/memory/pool_options
@@ -32,107 +35,198 @@ namespace {
 	);
 }
 
-class Task { 
-public:
-	struct promise_type {
-		using Handle = std::coroutine_handle<promise_type>;
+/*
+	Current target code:
 
-		std::suspend_always initial_suspend() { return {}; }
-		std::suspend_never final_suspend() noexcept { return {}; }
-		void unhandled_exception() {}
-		void return_void() {}
+	bop::Future<int> make_int() {
+		co_return 444;
+	}
 
-		Task get_return_object() {
-			return Task(Handle::from_promise(*this));
+	bop::Future<int> compute() {
+		int a = co_await make_int(); // should schedule with the global scheduler
+		int b = co_await make_int(); // should schedule with the global scheduler
+
+		co_return a + b;
+	}
+
+	int main() {
+		std::cout << compute().get() << "\n"; // should block until executed by the global jobsystem
+
+		bop::shutdown();
+		bop::wait_for_shutdown();
+	}
+*/
+
+namespace bop {
+	// condition-variable (push notitication) based future
+	// alternatively we could use the scheduler to poll for a result
+	// this has a fair amount of overhead, but is suitable for long-running tasks
+	template <typename T>
+	class AsyncPushFuture {
+	public:
+		AsyncPushFuture() noexcept = default;
+
+		void set(T value) 
+			requires std::movable<T>
+		{
+			std::lock_guard lock(m_Mutex);
+			m_Payload = std::move(value);
+			m_Condition.notify_one();
 		}
+
+		void set(const T& value)
+			requires !std::movable<T>
+		{
+			std::lock_guard lock(m_Mutex);
+			m_Payload = value;
+			m_Condition.notify_one();
+		}
+
+		void set_exception(std::exception_ptr ex) {
+			std::lock_guard lock(m_Mutex);
+			m_Payload = std::move(ex);
+			m_Condition.notify_one();
+		}
+
+		const T& get() const {
+			while (true) {
+				switch (m_Payload.index()) {
+				case 0: // monostate -- wait until something else was set
+				{
+					std::unique_lock lock(m_Mutex);
+					m_Condition.wait(lock, [&] { return m_Payload.index() != 0; });
+				}
+					break;
+
+				case 1: // value -- return it
+					return std::get<T>(m_Payload);
+
+				case 2: // exception_ptr -- rethrow
+					std::rethrow_exception(std::get<std::exception_ptr>(m_Payload));
+				}
+			}
+		}
+
+		T&& get() {
+			while (true) {
+				switch (m_Payload.index()) {
+				case 0:
+				{
+					std::unique_lock lock(m_Mutex);
+					m_Condition.wait(lock, [&] { return m_Payload.index() != 0; });
+				}
+				case 1:
+				{
+					return std::move(std::get<T>(m_Payload));
+				}
+
+				case 2:
+					std::rethrow_exception(std::get<std::exception_ptr>(m_Payload));
+				}
+			}
+		}
+
+	private:
+		mutable std::mutex              m_Mutex;
+		mutable std::condition_variable m_Condition;
+
+		std::variant<std::monostate, T, std::exception_ptr> m_Payload;
 	};
 
-	explicit Task(promise_type::Handle handle) :
-		m_Handle(handle)
-	{
-	}
+	template <typename T>
+	class Future {
+	public:
+		struct promise_type {
+			Future<T> get_return_object() { return Future<T>(this); }
 
-	~Task() {
-		// final handle should destroy the coroutine (sounds like refcounted semantics)
-	}
+			void return_value(T value)    { m_State = value;}
+			void unhandled_exception()    { m_State = std::current_exception(); }
+			auto initial_suspend()        { return std::suspend_always(); } // if you want to lazily execute the coroutine body, start in a suspended state
+			auto final_suspend() noexcept { return std::suspend_always(); } // if you want to access the promise after the coroutine is done, suspend it in the end
 
-	Task             (const Task&) = delete;
-	Task& operator = (const Task&) = delete;
-	Task             (Task&& t) noexcept = default;
-	Task& operator = (Task&& t) noexcept = default;
+			std::variant<std::monostate, T, std::exception_ptr> m_State;
+		};
 
-	void destroy() { m_Handle.destroy(); }
-	void resume() { m_Handle.resume(); }
+		using Handle = std::coroutine_handle<promise_type>;
 
-private:
-	promise_type::Handle m_Handle;
-};
+		explicit Future(promise_type* pm):
+			m_Handle(Handle::from_promise(*pm))
+		{
+		}
 
-Task do_your_thing() {
-	std::cout << "ping\n";
-	co_return;
+		~Future() {
+			if (m_Handle)
+				m_Handle.destroy();
+		}
+
+		bool await_ready() { return false; }
+		void await_suspend(std::coroutine_handle<promise_type> caller) noexcept {}
+		T    await_resume() {
+			while (m_Handle && !m_Handle.done())
+				m_Handle.resume();
+
+			auto& pm = m_Handle.promise();
+
+			if (auto* ex = std::get_if<std::exception_ptr>(&pm.m_State))
+				std::rethrow_exception(*ex);
+			else if (pm.m_State.index() == 0)
+				throw std::runtime_error("No value was set in the promise");
+			else
+				return std::get<T>(pm.m_State);
+		}
+
+		T get() {
+			return await_resume();
+		}
+
+	private:
+		Handle m_Handle;
+	};
 }
 
-struct Sleeper {
-	bool await_ready() const noexcept { 
-		std::cout << "ready?\n";
-		return false; 
-	}
-
-	void await_suspend(std::coroutine_handle<> h) const {
-		std::cout << "Suspended\n";
-
-		auto t = std::jthread([h] {
-			using namespace std::chrono_literals;
-			std::this_thread::sleep_for(1s);
-			std::cout << "__resume()\n";
-			h.resume();
-			std::cout << "**resume()\n";
-		});
-	}
-
-	void await_resume() const noexcept {
-		std::cout << "Resumed\n";
-	}
-};
-
-Task sleepy() {
-	Sleeper s;
-	std::cout << "Before\n";
-	co_await s;
-	std::cout << "After\n";
+bop::Future<int> make_int() {
+	co_return 444;
 }
 
-bop::job::CoJob<int> pong() {
-	co_return 123;
-}
-
-bop::job::CoJob<int> ping() {
-	auto x = co_await pong();
-	co_return x;
+bop::Future<int> compute() {
+	int a = co_await make_int();
+	int b = co_await make_int();
+	
+	co_return a + b;
 }
 
 int main() {
 	std::cout << "Starting application\n";
 
-	Task t = do_your_thing();
-	t.resume();
+	/*
+	bop::Future<int> x;
 
-	{
-		for (auto i : bop::job::range(5, 11))
-			std::cout << i << " ";
+	std::jthread thd([&] {
+		using namespace std::chrono_literals;
+		std::cout << "Sleeping\n";
+		std::this_thread::sleep_for(3s);
+		std::cout << "Setting\n";
+		
+		try {
+			throw std::runtime_error("f00");
+		}
+		catch (...) {
+			x.set_exception(std::current_exception());
+		}
+	});
 
-		std::cout << "\n";
+	std::cout << "Waiting\n";
+
+	try {
+		std::cout << x.get() << "\n";
 	}
+	catch (std::exception& ex) {
+		std::cout << "Caught: " << ex.what() << "\n";
+	}
+	*/
 
-	sleepy().resume();
-
-	//ping();
-
-	std::cout << std::boolalpha << bop::util::is_awaiter_v<Sleeper> << "\n";
-	std::cout << std::boolalpha << bop::util::is_awaiter_v<Task> << "\n";
-
-	std::cout << "Cacheline: " << bop::util::hardware_constructive_interference_size << "\n";
+	std::cout << make_int().get() << "\n";
+	std::cout << compute().get() << "\n";
 
 	// creating a local instance will initialize the static class, optionally with some settings
 	/*
@@ -154,8 +248,10 @@ int main() {
 
 	// don't immediately schedule shutdown
 	{
+		std::cout << "Sleeping main thread\n";
 		using namespace std::chrono_literals;
 		std::this_thread::sleep_for(5s);
+		std::cout << "Continuing main thread\n";
 	}
 
 	bop::schedule([] { std::cout << "Testing continuations\n"; })
