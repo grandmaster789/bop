@@ -27,6 +27,7 @@ namespace bop::job {
 
 	template <typename T>
 	T CoJob<T>::await_resume() {
+		// this will work for 'returning' coroutines, but not for 'yielding' coroutines
 		while (m_Handle && !m_Handle.done())
 			m_Handle.resume();
 

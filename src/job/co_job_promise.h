@@ -11,10 +11,13 @@ namespace bop::job {
 	struct CoJobPromise {
 		CoJob<T> get_return_object();
 
-		void return_value(T value);
+		void return_value(T new_value);		
+		auto yield_value(T new_value) noexcept;
 		void unhandled_exception();
 		auto initial_suspend();
 		auto final_suspend() noexcept;
+
+		void await_transform() = delete;
 
 		std::variant<std::monostate, T, std::exception_ptr> m_Payload;
 	};
@@ -28,6 +31,8 @@ namespace bop::job {
 		void unhandled_exception();
 		auto initial_suspend();
 		auto final_suspend() noexcept;
+
+		void await_transform() = delete;
 
 		std::optional<std::exception_ptr> m_Payload;
 	};
