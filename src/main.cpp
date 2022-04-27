@@ -9,10 +9,13 @@
 #include "util/cacheline.h"
 #include "util/spinlock.h"
 #include "util/manual_lifetime.h"
+#include "util/function.h"
 
 #include "job/job.h"
 #include "job/job_queue.h"
 #include "job/job_system.h"
+
+#include "task/task.h"
 
 #include "job/co_job.h"
 #include "job/co_job_promise.h"

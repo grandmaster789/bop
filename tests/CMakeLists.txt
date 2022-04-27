@@ -2,13 +2,13 @@ set(UNITTEST "unittest")
 
 include_directories(../src)
 
-add_library(catch_main "catch_main.cpp")
+add_library(catch_main "catch_main.cpp" "util/test_function.cpp")
 target_link_libraries(catch_main PUBLIC Catch2::Catch2)
 
 add_executable(${UNITTEST}	
 	"job/test_jobsystem.cpp"
 	"job/test_co_generator.cpp"
-)
+ "util/test_function.cpp")
 
 find_package(Catch2 REQUIRED)
 

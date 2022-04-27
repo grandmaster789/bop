@@ -12,7 +12,7 @@ namespace bop::job {
 		CoJob<T> get_return_object();
 
 		void return_value(T new_value);		
-		auto yield_value(T new_value) noexcept;
+		
 		void unhandled_exception();
 		auto initial_suspend();
 		auto final_suspend() noexcept;
