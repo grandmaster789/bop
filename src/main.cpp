@@ -10,12 +10,14 @@
 #include "util/spinlock.h"
 #include "util/manual_lifetime.h"
 #include "util/function.h"
+#include "util/scope_guard.h"
 
 #include "job/job.h"
 #include "job/job_queue.h"
 #include "job/job_system.h"
 
 #include "task/task.h"
+#include "task/task_scheduler.h"
 
 #include "job/co_job.h"
 #include "job/co_job_promise.h"
@@ -74,9 +76,20 @@ int main() {
 	}
 	*/
 
+
+	bop::task::TaskScheduler x;
+	bop::task::Task y = [] { std::cout << "task y\n"; };
+	y();
+
+	/*
+	auto y = x.schedule([] { std::cout << "y\n"; });
+	auto z = x.schedule([] { return 42; });
+	
+	y.wait();
+	z.wait();
+	*/
+
 	// coroutines
-
-
 	bop::schedule([] { std::cout << "Testing continuations\n"; })
 		.then([] { std::cout << "3\n"; })
 		.then([] { std::cout << "2\n"; })

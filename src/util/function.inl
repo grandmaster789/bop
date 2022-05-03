@@ -102,7 +102,7 @@ namespace util {
 	}
 
 	template <typename R, typename...Ts, size_t N>
-	Function<R(Ts...), N>::operator bool() const noexcept {
+	[[nodiscard]] Function<R(Ts...), N>::operator bool() const noexcept {
 		return !!m_Controller;
 	}
 

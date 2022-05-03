@@ -5,7 +5,7 @@ find_package(nlohmann_json CONFIG REQUIRED)
 
 add_executable(${BOP_MAIN} 
 	"main.cpp"
-)
+ "util/scope_guard.h")
 
 add_library(${BOP_LIB}
 	"job/job.h"
@@ -20,9 +20,9 @@ add_library(${BOP_LIB}
 	"job/co_job.h" 
 	"job/co_job_promise.h"
 	
-	"task/task_system.h" 
+	"task/task_scheduler.h" 
 	"task/task.h" 
-	"task/task_system.cpp"
+	"task/task_scheduler.cpp"
 
 	"util/cacheline.h"
 	"util/curry.h" 
@@ -35,7 +35,7 @@ add_library(${BOP_LIB}
 	"util/overloaded.h"
 	"util/typelist.h"
 	"util/function.h"
-)
+ "util/scope_guard.h")
 
  target_link_libraries(${BOP_MAIN} PRIVATE ${BOP_LIB})
 

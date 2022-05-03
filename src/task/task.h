@@ -7,6 +7,8 @@
 #include <functional>
 #include <type_traits>
 
+#include "../util/concepts.h"
+
 namespace bop::task {
 	/*
 	* Basically a 'future' style pattern; the task should have a promise state
@@ -23,15 +25,33 @@ namespace bop::task {
 	class TaskBase {
 	public:
 		TaskBase() noexcept = default;
+		virtual ~TaskBase() = default;
 
 		inline void reset();
 		inline void wait();
 
 	protected:
-		std::atomic<uint32_t>   m_NumDependencies = 1;
-		TaskBase*               m_Parent          = nullptr;
-		TaskBase*               m_NextLink        = nullptr;
-		std::optional<uint32_t> m_ThreadIndex     = std::nullopt;
+		std::atomic<uint32_t>   m_NumDependencies = 1;            // number of child tasks this one is waiting for; on 1 this task may be executed
+		TaskBase*               m_Parent          = nullptr;      // backpointer to the task that initiated this one
+		TaskBase*               m_NextLink        = nullptr;      // intrusive pointer for the next task to be executed after this one
+		std::optional<uint32_t> m_ThreadIndex     = std::nullopt; // if set, forces execution on a particular thread
+	};
+
+	// use a template to allow inheriting from a lambda
+	template <util::c_invocable Fn>
+	class Task: 
+		public TaskBase,
+		public Fn
+	{
+	public:
+		Task(Fn&& fn) noexcept; // this constructor should allow for automatic derivation of types
+
+		void operator()();
+
+		bool is_done() const noexcept;
+
+	private:
+		bool m_Done = false;
 	};
 }
 

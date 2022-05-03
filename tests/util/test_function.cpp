@@ -17,8 +17,7 @@ TEST_CASE("test_store_lambda") {
 
 	REQUIRE(fn(5) == 25);
 
-	// rebind to another lambda
-	fn = [](int x) { return x * 2; };
+	fn = [](int x) { return x * 2; }; // rebind to another lambda
 
 	REQUIRE(fn(6) == 12);
 }

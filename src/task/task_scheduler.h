@@ -11,22 +11,22 @@
 #include "task.h"
 
 namespace bop::task {
-	class TaskSystem {
+	class TaskScheduler {
 	public:
 		using MemoryResource = std::pmr::memory_resource;
 
 		// uses the PMR composable memory allocation backend
-		TaskSystem(
+		TaskScheduler(
 			std::optional<uint32_t> num_threads     = std::nullopt,                   // by default this will use the hardware concurrency
 			MemoryResource*         memory_resource = std::pmr::new_delete_resource()
 		) noexcept;
 
-		TaskSystem             (const TaskSystem&)     = delete;
-		TaskSystem& operator = (const TaskSystem&)     = delete;
-		TaskSystem             (TaskSystem&&) noexcept = default;
-		TaskSystem& operator = (TaskSystem&&) noexcept = default;
+		TaskScheduler             (const TaskScheduler&)     = delete;
+		TaskScheduler& operator = (const TaskScheduler&)     = delete;
+		TaskScheduler             (TaskScheduler&&) noexcept = default;
+		TaskScheduler& operator = (TaskScheduler&&) noexcept = default;
 
-		auto schedule(std::invocable auto&& fn);
+
 
 	private:
 		MemoryResource*          m_MemoryResource = nullptr;
@@ -35,4 +35,4 @@ namespace bop::task {
 	};
 }
 
-#include "task_system.inl"
+#include "task_scheduler.inl"

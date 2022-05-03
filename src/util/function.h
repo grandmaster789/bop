@@ -29,7 +29,7 @@ namespace util {
 		template <typename Fn> Function& operator = (Fn&& fn);
 		template <typename Fn> Function& operator = (std::reference_wrapper<Fn> fn);
 
-		explicit operator bool() const noexcept;
+		[[nodiscard]] explicit operator bool() const noexcept;
 
 		void swap(Function& fn) noexcept;
 
@@ -59,6 +59,8 @@ namespace util {
 		Controller m_Controller = nullptr;
 		Storage    m_StoredFn;
 	};
+
+	
 }
 
 #include "function.inl"
