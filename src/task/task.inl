@@ -18,7 +18,7 @@ namespace bop::task {
 	}
 
 	template <util::c_invocable Fn>
-	Task<Fn>::Task(Fn&& fn) noexcept:
+	constexpr Task<Fn>::Task(Fn&& fn) noexcept:
 		TaskBase(),
 		Fn(std::move(fn))
 	{

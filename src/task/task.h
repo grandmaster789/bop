@@ -24,7 +24,7 @@ namespace bop::task {
 	*/
 	class TaskBase {
 	public:
-		TaskBase() noexcept = default;
+		constexpr TaskBase() noexcept = default;
 		virtual ~TaskBase() = default;
 
 		inline void reset();
@@ -44,7 +44,7 @@ namespace bop::task {
 		public Fn
 	{
 	public:
-		Task(Fn&& fn) noexcept; // this constructor should allow for automatic derivation of types
+		constexpr Task(Fn&& fn) noexcept; // this constructor should allow for automatic derivation of types
 
 		void operator()();
 
