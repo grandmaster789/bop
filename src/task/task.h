@@ -24,7 +24,7 @@ namespace bop::task {
 	//        which may be problematic. Memory allocation (PMR-based) is done in the scheduler, but might be factored out?
 	class TaskBase {
 	public:
-		TaskBase() noexcept = default;
+		constexpr TaskBase() noexcept = default;
 		virtual ~TaskBase() = default;
 
 		inline void reset();

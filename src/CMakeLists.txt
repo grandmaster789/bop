@@ -38,7 +38,8 @@ add_library(${BOP_LIB}
 	"util/platform.h"
 	"util/scope_guard.h"
 	"util/typelist.h"
- )
+	"util/function.h"
+ "util/scope_guard.h")
 
  target_link_libraries(${BOP_MAIN} PRIVATE ${BOP_LIB})
 
