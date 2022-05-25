@@ -9,7 +9,7 @@ namespace bop::util {
 		typename    t_Fn, // must be callable with t_Args
 		typename... t_Args
 	>
-	constexpr decltype(auto) curry(
+	constexpr auto curry(
 		t_Fn      callable,
 		t_Args... initial_args // may be zero args as well
 	) {

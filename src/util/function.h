@@ -37,6 +37,7 @@ namespace util {
 
 	private:
 		// this is used so that 'special' operations can be done with a single function pointer
+		// -- a 'controller' function to perform the special operations
 		enum class e_SpecialOperation {
 			clone,
 			destroy

@@ -32,13 +32,13 @@ namespace {
 	// https://en.cppreference.com/w/cpp/memory/pool_options
 	// ~ synchronized pool will accomodate allocations if possible, and
 	//   use the upstream allocator for the remaining calls
-	auto g_GlobalMemoryResource = std::pmr::synchronized_pool_resource(
+	std::pmr::synchronized_pool_resource g_GlobalMemoryResource = {
 		{
-			.max_blocks_per_chunk        = 20,
+			.max_blocks_per_chunk = 20,
 			.largest_required_pool_block = 1 << 20 // == 1MB
 		},
 		std::pmr::new_delete_resource()
-	);
+	};
 }
 
 bop::job::CoJob<void> test_co_print() {
@@ -50,6 +50,7 @@ bop::job::CoJob<void> test_co_print() {
 template <typename>
 struct CaptureSlots;
 
+// variation of std::apply where the we'll assume that the tuple holds optionals or pointers to values
 namespace detail {
 	template <class Fn, class Tuple, std::size_t... I>
 	constexpr auto apply_unwrap_impl(
@@ -59,7 +60,7 @@ namespace detail {
 	) {
 		return std::invoke(
 			std::forward<Fn>(fn),
-			(*std::get<I>(std::forward<Tuple>(tup)))...
+			(*std::get<I>(std::forward<Tuple>(tup)))... // so here we'd need to dereference the optional/pointer
 		);
 	}
 }
@@ -170,6 +171,7 @@ struct CaptureSlots<void()> {
 template <typename T, typename... Args>
 CaptureSlots(T(*)(Args...))->CaptureSlots<T(Args...)>;
 
+// testing for simple, global functions
 int testing_a(int a, int b) {
 	return a * b;
 }
@@ -185,6 +187,19 @@ void testing_c(int a, int b) {
 void testing_d() {
 	std::cout << "DDD\n";
 }
+
+// testing for member functions
+struct Foo {
+	int m_Value = 0;
+
+	int  test_a(int a, int b) { return m_Value + a + b; }
+	int  test_b()             { return m_Value; }
+	void test_c(int a, int b) { m_Value = a + b; }
+	void test_d()             { m_Value = 123; }
+};
+
+// lambdas
+// virtual functions?
 
 int main() {
 	std::cout << "Starting application\n";

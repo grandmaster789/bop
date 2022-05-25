@@ -5,7 +5,7 @@ find_package(nlohmann_json CONFIG REQUIRED)
 
 add_executable(${BOP_MAIN} 
 	"main.cpp"
- "util/scope_guard.h")
+ "util/scope_guard.h" "util/describe_object.h")
 
 add_library(${BOP_LIB}
 	"job/job.h"
@@ -35,7 +35,7 @@ add_library(${BOP_LIB}
 	"util/overloaded.h"
 	"util/typelist.h"
 	"util/function.h"
- "util/scope_guard.h")
+ "util/scope_guard.h" "util/describe_object.h")
 
  target_link_libraries(${BOP_MAIN} PRIVATE ${BOP_LIB})
 
