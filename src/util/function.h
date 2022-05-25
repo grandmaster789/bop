@@ -3,14 +3,14 @@
 #include <functional>
 #include <memory>
 
-namespace util {
-	template <typename t_Fn, size_t t_MaxSize = 64>
+namespace bop::util {
+	template <typename t_Fn, size_t t_MaxSize = 64> // not sure what a sensible maximum size is
 	class Function;
 
 	template <
-		typename t_Result, 
+		typename    t_Result, 
 		typename... t_Args, 
-		size_t t_MaxSize
+		size_t      t_MaxSize
 	>
 	class Function<t_Result(t_Args...), t_MaxSize> {
 	public:

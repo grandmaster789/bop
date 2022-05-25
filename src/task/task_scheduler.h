@@ -9,6 +9,7 @@
 #include <type_traits>
 
 #include "task.h"
+#include "task_queue.h"
 
 namespace bop::task {
 	class TaskScheduler {
@@ -29,9 +30,17 @@ namespace bop::task {
 
 
 	private:
+		Task* allocate_task();
+
 		MemoryResource*          m_MemoryResource = nullptr;
 		std::vector<std::thread> m_WorkerThreads;
 		std::atomic<uint32_t>    m_NumThreads = 0;
+
+		// thread-local resources
+		// [NOTE] this complicates testing; do we even want these? 
+		static thread_local TaskQueue m_Garbage;
+		static thread_local TaskQueue m_Recycle;
+
 	};
 }
 

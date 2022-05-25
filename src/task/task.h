@@ -6,22 +6,22 @@
 #include <exception>
 #include <functional>
 #include <type_traits>
+#include <coroutine>
+
+#include <iostream>
 
 #include "../util/concepts.h"
+#include "../util/scope_guard.h"
+#include "../util/typelist.h"
+#include "../util/function.h"
 
 namespace bop::task {
-	/*
-	* Basically a 'future' style pattern; the task should have a promise state
-	* as well as some kind of function/job/task to fill the promise.
-	* 
-	* I'd like to make this so that we can have any number of arguments for the
-	* function/job/task
-	* 
-	* We're going with a base class so that we can uniformly use a linked list
-	* for deferred execution.
-	* 
-	* First pass will not be based on coroutine support yet, nor continuations
-	*/
+	class Task;
+
+	// [NOTE] is a base class even required?
+	//        we sort of need one to account for coroutines, but the links may end up needing dynamic type information in that case...
+	//        the other need for base classes is when we want to store result values inside of the task object itself;
+	//        which may be problematic. Memory allocation (PMR-based) is done in the scheduler, but might be factored out?
 	class TaskBase {
 	public:
 		TaskBase() noexcept = default;
@@ -30,28 +30,38 @@ namespace bop::task {
 		inline void reset();
 		inline void wait();
 
+		inline void set_thread_index(uint32_t thread_index) {
+			m_ThreadIndex = thread_index;
+		}
+
 	protected:
+		friend class TaskQueue;
+
 		std::atomic<uint32_t>   m_NumDependencies = 1;            // number of child tasks this one is waiting for; on 1 this task may be executed
-		TaskBase*               m_Parent          = nullptr;      // backpointer to the task that initiated this one
-		TaskBase*               m_NextLink        = nullptr;      // intrusive pointer for the next task to be executed after this one
+		Task*                   m_Parent          = nullptr;      // backpointer to the task that initiated this one
+		Task*                   m_NextLink        = nullptr;      // intrusive pointer for the next task to be executed after this one
 		std::optional<uint32_t> m_ThreadIndex     = std::nullopt; // if set, forces execution on a particular thread
 	};
-
-	// use a template to allow inheriting from a lambda
-	template <util::c_invocable Fn>
-	class Task: 
-		public TaskBase,
-		public Fn
+	
+	class Task:
+		public TaskBase
 	{
 	public:
-		Task(Fn&& fn) noexcept; // this constructor should allow for automatic derivation of types
+		using VoidFunctionPtr = void(*)();
 
-		void operator()();
+		Task() = default;
 
-		bool is_done() const noexcept;
+		void operator()() noexcept {
+			if (m_FunctionPtr) [[unlikely]]
+				m_FunctionPtr();
+			else
+				m_Work();
+		}
 
 	private:
-		bool m_Done = false;
+		TaskBase*              m_Continuation = nullptr;
+		VoidFunctionPtr        m_FunctionPtr  = nullptr; // NOTE may be consolidated via std::variant
+		util::Function<void()> m_Work;
 	};
 }
 

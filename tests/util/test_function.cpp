@@ -7,13 +7,13 @@ namespace testing {
 }
 
 TEST_CASE("test_store_function_ptr") {
-	util::Function<int()> fn = testing::ping;
+	bop::util::Function<int()> fn = testing::ping;
 
 	REQUIRE(fn() == 42);
 }
 
 TEST_CASE("test_store_lambda") {
-	util::Function<int(int)> fn = [](int x) { return x * x; };
+	bop::util::Function<int(int)> fn = [](int x) { return x * x; };
 
 	REQUIRE(fn(5) == 25);
 
@@ -23,7 +23,7 @@ TEST_CASE("test_store_lambda") {
 }
 
 TEST_CASE("test_empty_function") {
-	util::Function<int()> fn;
+	bop::util::Function<int()> fn;
 
 	REQUIRE(!fn);
 	REQUIRE_THROWS(fn());

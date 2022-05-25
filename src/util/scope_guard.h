@@ -4,11 +4,13 @@
 
 namespace bop::util {
 	template <typename Fn>
-	requires (c_invocable<Fn> && std::movable<Fn>)
 	struct ScopeGuard: Fn {
 		explicit ScopeGuard(Fn&& fn) noexcept;
 		~ScopeGuard();
 	};
+
+	// usage:
+	//    auto guard = util::ScopeGuard([this] { m_Done = true; });
 }
 
 #include "scope_guard.inl"

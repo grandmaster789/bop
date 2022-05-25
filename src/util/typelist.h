@@ -5,8 +5,10 @@
 namespace util {
 	// so result_of has been standardized, but there's no standard typelist for args
 
+	struct TypeListBase {};
+
 	template <typename...Ts> 
-	struct TypeList {
+	struct TypeList: TypeListBase {
 	};
 
 	template <typename...Ts> struct Head {};

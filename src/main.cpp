@@ -17,6 +17,7 @@
 #include "job/job_system.h"
 
 #include "task/task.h"
+#include "task/task_queue.h"
 #include "task/task_scheduler.h"
 
 #include "job/co_job.h"
@@ -78,8 +79,14 @@ int main() {
 
 
 	bop::task::TaskScheduler x;
-	bop::task::Task y = [] { std::cout << "task y\n"; };
+	/*bop::task::Task y = [] { std::cout << "task y\n"; };
+	bop::task::Task z = [](int i) { std::cout << i << "\n"; };
 	y();
+	z(222);
+
+	bop::task::Task q = [](int i) { return i * 2; };
+
+	q(333);*/
 
 	/*
 	auto y = x.schedule([] { std::cout << "y\n"; });

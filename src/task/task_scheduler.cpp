@@ -9,4 +9,15 @@ namespace bop::task {
 	{
 
 	}
+
+	Task* TaskScheduler::allocate_task() {
+		// see if we can re-use an old task
+		if (Task* x = m_Recycle.pop()) {
+			x->reset();
+			return x;
+		}
+		else {
+
+		}
+	}
 }

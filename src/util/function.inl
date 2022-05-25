@@ -2,7 +2,7 @@
 
 #include "function.h"
 
-namespace util {
+namespace bop::util {
 	template <typename R, typename...Ts, size_t N>
 	Function<R(Ts...), N>::~Function() {
 		if (m_Controller)
