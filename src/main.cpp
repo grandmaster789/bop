@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <thread>
 #include <format>
+#include <optional>
 
 #include "util/traits.h"
 #include "util/concepts.h"
@@ -10,6 +11,7 @@
 #include "util/spinlock.h"
 #include "util/manual_lifetime.h"
 #include "util/function.h"
+#include "util/function_traits.h"
 #include "util/scope_guard.h"
 #include "util/typelist.h"
 
@@ -168,9 +170,52 @@ struct CaptureSlots<void()> {
 	}
 };
 
+template <bop::util::c_is_callable T>
+struct CaptureLambda: 
+	T 
+{
+	bop::util::LiftResult   <T, std::optional> m_Result;	//  int            ->  optional<int>; void -> Empty
+	bop::util::LiftArguments<T, std::optional> m_Arguments; // (float, double) -> (optional<float>, optional<double>)
+	std::atomic<size_t>                        m_RemainingArgs = bop::util::FunctionTraits<T>::k_NumArgs;
+
+	CaptureLambda(T&& lambda) :
+		T(std::forward<T>(lambda)) 
+	{}
+
+	template <size_t Idx, typename T>
+	void set_arg(T&& value) {
+		if (!std::get<Idx>(m_Arguments).has_value())
+			--m_RemainingArgs;
+
+		std::get<Idx>(m_Arguments) = std::forward<T>(value);		
+	}
+
+	template <size_t Idx>
+	bool has_arg() const noexcept {
+		return std::get<Idx>(m_Arguments).has_value();
+	}
+
+
+	bool call() {
+		if (m_RemainingArgs == 0) {
+			if constexpr (std::is_same_v<bop::util::FunctionTraits<T>::Result, void>)
+				apply_unwrap(*this, m_Arguments);
+			else
+				m_Result = apply_unwrap(*this, m_Arguments);
+
+			return true;
+		}
+		else
+			return false;
+	}
+};
+
 // because we're using specializations, we still need to manually specify a deduction guide
 template <typename T, typename... Args>
 CaptureSlots(T(*)(Args...))->CaptureSlots<T(Args...)>;
+
+template <bop::util::c_is_callable T>
+CaptureLambda(T)->CaptureLambda<T>;
 
 // testing for simple, global functions
 int testing_a(int a, int b) {
@@ -229,6 +274,26 @@ int main() {
 	slots_d.call();
 
 	CaptureSlots slots_e = testing_a;
+
+	CaptureLambda slots_f = [](int i, int j) { return i * j; };
+
+	slots_f.set_arg<0>(5);
+	if (!slots_f.call())
+		std::cout << "Not all parameters have been set yet\n";
+
+	slots_f.set_arg<0>(9);
+	if (!slots_f.call())
+		std::cout << "Not all parameters have been set yet\n";
+
+	slots_f.set_arg<1>(11);
+	
+	if (slots_f.call())
+		std::cout << "Result: " << *slots_f.m_Result << "\n";
+
+	CaptureLambda slots_g = [] { std::cout << "Variant G\n"; };
+
+	if (slots_g.call())
+		std::cout << "G is working\n";
 
 	// dummy tasks to verify that the trace data is correctly displayed by chrome
 	/*

@@ -5,7 +5,7 @@ find_package(nlohmann_json CONFIG REQUIRED)
 
 add_executable(${BOP_MAIN} 
 	"main.cpp"
-)
+ "util/function_traits.h")
 
 add_library(${BOP_LIB}
 	"job/job.h"
@@ -39,7 +39,7 @@ add_library(${BOP_LIB}
 	"util/scope_guard.h"
 	"util/typelist.h"
 	"util/function.h"
- "util/scope_guard.h")
+ "util/scope_guard.h" "util/function_traits.h")
 
  target_link_libraries(${BOP_MAIN} PRIVATE ${BOP_LIB})
 

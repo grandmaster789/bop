@@ -27,8 +27,6 @@ namespace bop::task {
 		TaskScheduler             (TaskScheduler&&) noexcept = default;
 		TaskScheduler& operator = (TaskScheduler&&) noexcept = default;
 
-
-
 	private:
 		Task* allocate_task();
 
@@ -40,7 +38,6 @@ namespace bop::task {
 		// [NOTE] this complicates testing; do we even want these? 
 		static thread_local TaskQueue m_Garbage;
 		static thread_local TaskQueue m_Recycle;
-
 	};
 }
 
